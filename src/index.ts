@@ -52,7 +52,7 @@ program
   )
   .option(
     "--suggest",
-    "Get LLM-powered query rewrite suggestions (requires GEMINI_API_KEY or OPENAI_API_KEY)",
+    "Get LLM-powered query rewrite suggestions (requires GROQ_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY)",
   )
   .action(async (file: string, opts: { suggest?: boolean }) => {
     await optimizeQuery(file, { suggest: opts.suggest ?? false });

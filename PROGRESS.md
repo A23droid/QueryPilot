@@ -138,7 +138,7 @@ npm run typecheck
 
 ### Completed
 - [x] `qp report <file>` — Markdown summary for PR comments
-- [x] `qp optimize --suggest` — LLM-powered query rewrite suggestions (gated on API key)
+- [x] `qp optimize --suggest` — LLM-powered query rewrite suggestions (Groq Llama, Gemini, or OpenAI; gated on API key)
 
 ### Next Steps
 - [ ] Add `--threshold <pct>` flag on `compare` to customize regression sensitivity

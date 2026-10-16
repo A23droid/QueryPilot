@@ -28,6 +28,7 @@ export interface LLMContext {
 }
 
 const GEMINI_MODEL = "gemini-2.0-flash";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 function buildPrompt(ctx: LLMContext): string {
   const findingsText = ctx.findings
@@ -118,6 +119,32 @@ async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
   return data.choices?.[0]?.message?.content ?? "No suggestions returned.";
 }
 
+async function callGroq(apiKey: string, prompt: string): Promise<string> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 1500,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Groq API error (${res.status}): ${text}`);
+  }
+
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return data.choices?.[0]?.message?.content ?? "No suggestions returned.";
+}
+
 /**
  * Get LLM-powered rewrite suggestions for a query's findings.
  *
@@ -126,11 +153,13 @@ async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
 export async function suggestFixes(ctx: LLMContext): Promise<string> {
   const geminiKey = process.env.GEMINI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
 
-  if (!geminiKey && !openaiKey) {
+  if (!geminiKey && !openaiKey && !groqKey) {
     return `## 🤖 LLM Query Rewrite Suggestions
 
-No LLM API key configured. Set \`GEMINI_API_KEY\` or \`OPENAI_API_KEY\` in your environment to get AI-powered query rewrite suggestions.
+No LLM API key configured. Set \`GROQ_API_KEY\` (recommended, Llama model),
+\`GEMINI_API_KEY\`, or \`OPENAI_API_KEY\` in your environment to get AI-powered query rewrite suggestions.
 
 Deterministic findings are still shown above — use those as your starting point.`;
   }
@@ -138,6 +167,10 @@ Deterministic findings are still shown above — use those as your starting poin
   const prompt = buildPrompt(ctx);
 
   try {
+    if (groqKey) {
+      const text = await callGroq(groqKey, prompt);
+      return `## 🤖 LLM Query Rewrite Suggestions (Llama via Groq)\n\n${text}`;
+    }
     if (geminiKey) {
       const text = await callGemini(geminiKey, prompt);
       return `## 🤖 LLM Query Rewrite Suggestions\n\n${text}`;

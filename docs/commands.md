@@ -169,7 +169,7 @@ Optimization Action Items (1 total)
 **Exit codes:** 0 clean / 1 warnings / 2 critical
 
 **LLM-powered suggestions (`--suggest`):**
-Pass `--suggest` to get AI-powered query rewrite suggestions in addition to deterministic findings. Requires `GEMINI_API_KEY` or `OPENAI_API_KEY` in your environment. Without a key, a fallback message is shown instead.
+Pass `--suggest` to get AI-powered query rewrite suggestions in addition to deterministic findings. Requires `GROQ_API_KEY` (Llama model, recommended), `GEMINI_API_KEY`, or `OPENAI_API_KEY` in your environment. Without a key, a fallback message is shown instead.
 
 ```bash
 qp optimize queries/slow.sql --suggest
