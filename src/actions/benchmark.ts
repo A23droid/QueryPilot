@@ -54,9 +54,6 @@ export async function runBenchmark(
   const trimmed = sql.trim().replace(/;+$/, "");
 
   if (!trimmed) throw new Error("SQL query is empty");
-  if (!/^SELECT\b/i.test(trimmed)) {
-    throw new Error("Only SELECT queries are supported for now");
-  }
   if (trimmed.includes(";")) {
     throw new Error("Only one SQL statement is allowed");
   }

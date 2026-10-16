@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "bin": {
-    "qp": "src/index.ts"
+    "qp": "dist/index.js"
   },
   "keywords": [],
   "author": "",

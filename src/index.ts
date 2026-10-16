@@ -12,10 +12,17 @@
  */
 
 import { Command } from "commander";
+import chalk from "chalk";
 import { analyzeQuery } from "./actions/analyze.js";
 import { optimizeQuery } from "./actions/optimize.js";
 import { benchmarkQuery } from "./actions/benchmark.js";
 import { compareQuery, saveBaselineAction } from "./actions/compare.js";
+import {
+  parsePrismaSchema,
+  readPrismaSchema,
+  modelToSql,
+  modelToSelectSql,
+} from "./db/prismaParser.js";
 
 const program = new Command();
 
@@ -81,6 +88,86 @@ program
   )
   .action(async (file: string) => {
     await compareQuery(file);
+  });
+
+// ── prisma ───────────────────────────────────────────────────────────────────
+program
+  .command("prisma <file>")
+  .description(
+    "Parse a Prisma schema file and print model structure + generated SQL",
+  )
+  .option("--sql", "Print generated CREATE TABLE / SELECT SQL for each model")
+  .option(
+    "--analyze <model>",
+    "Run EXPLAIN on a generated SELECT * query for the given model name",
+  )
+  .action(async (file: string, opts: { sql?: boolean; analyze?: string }) => {
+    const schema = await readPrismaSchema(file);
+
+    console.log(
+      `\nParsed ${schema.models.length} model(s) from ${chalk.bold(file)}\n`,
+    );
+
+    for (const model of schema.models) {
+      console.log(
+        `${chalk.bold.cyan("model ")} ${chalk.bold.white(model.name)}`,
+      );
+      console.log(chalk.dim(`  fields: ${model.fields.length}`));
+      console.log(chalk.dim(`  relations: ${model.relations.length}`));
+
+      for (const field of model.fields) {
+        const modifiers: string[] = [];
+        if (field.isOptional) modifiers.push("optional");
+        if (field.isList) modifiers.push("list");
+        const modStr =
+          modifiers.length > 0
+            ? chalk.dim(` [${modifiers.join(", ")}]`)
+            : "";
+        console.log(
+          `    ${chalk.white(field.name)} ${chalk.dim(field.baseType)}${modStr}`,
+        );
+      }
+
+      for (const rel of model.relations) {
+        console.log(
+          `    ${chalk.yellow("relation")} ${rel.field} → ${rel.targetModel} (${rel.kind})`,
+        );
+      }
+
+      if (opts.sql) {
+        console.log(chalk.dim(`  SQL:\n${modelToSql(model)}`));
+      }
+
+      if (opts.analyze === model.name) {
+        const { explainQuery } = await import("./db/explain.js");
+        const { pool } = await import("./db/connection.js");
+        try {
+          const selectSql = modelToSelectSql(model);
+          const plan = await explainQuery(selectSql);
+          console.log(
+            chalk.green(`\n  EXPLAIN for "SELECT * FROM ${model.name}" LIMIT 1:`),
+          );
+          const { printPlanNode } = await import("./utils/planPrinter.js");
+          printPlanNode(plan);
+        } finally {
+          await pool.end();
+        }
+      }
+
+      console.log("");
+    }
+
+    if (schema.datasource) {
+      console.log(
+        `  datasource: ${chalk.dim(schema.datasource.provider ?? "?")}`,
+      );
+    }
+    if (schema.generator) {
+      console.log(
+        `  generator: ${chalk.dim(schema.generator.provider ?? "?")}`,
+      );
+    }
+    console.log("");
   });
 
 program.parseAsync(process.argv);

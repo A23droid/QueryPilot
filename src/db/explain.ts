@@ -48,11 +48,6 @@ export async function explainQuery(
     .replace(/--[^\r\n]*/g, "")        // -- line comments
     .trim();
 
-  // Only allow SELECT statements for safety
-  if (!/^SELECT\b/i.test(withoutComments)) {
-    throw new Error("Only SELECT queries are supported for now");
-  }
-
   if (withoutComments.includes(";")) {
     throw new Error("Only one SQL statement is allowed");
   }
