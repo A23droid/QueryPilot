@@ -4,8 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "build": "tsc --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "analyze": "tsx src/index.ts analyze",
+    "optimize": "tsx src/index.ts optimize",
+    "benchmark": "tsx src/index.ts benchmark",
+    "compare": "tsx src/index.ts compare",
+    "test": "vitest run"
   },
   "bin": {
     "qp": "src/index.ts"

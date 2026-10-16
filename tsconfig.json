@@ -1,44 +1,43 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
+  // Teaching note — tsconfig.json controls how TypeScript compiles your code.
+  // Key settings for a Node.js CLI:
+  //   "module": "nodenext"  → Use Node.js's native ES module resolution
+  //   "target": "esnext"    → Output modern JavaScript (Node 20+ supports it all)
+  //   "outDir": "./dist"    → Compiled JS goes in dist/ (not alongside source)
+  //   "rootDir": "./src"    → Source files live in src/
+  //   "strict": true        → All strict type checks enabled (catches bugs)
+
   "compilerOptions": {
     // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    "rootDir": "./src",
+    "outDir": "./dist",
 
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
+    // Environment Settings — Node.js ESM
     "module": "nodenext",
+    "moduleResolution": "nodenext",
     "target": "esnext",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
 
-    // Other Outputs
+    // Node.js types
+    "types": ["node"],
+    "lib": ["esnext"],
+
+    // Output
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
 
-    // Stricter Typechecking Options
+    // Stricter checks — catch index access bugs
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
+    // Recommended strictness
     "strict": true,
-    "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

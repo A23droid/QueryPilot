@@ -1,58 +1,145 @@
 # QueryPilot CI — Progress Log
 
-## What We've Done So Far (Initial Commit)
+## Session 1 — Initial Commit
 
 ### Core Infrastructure
 - **CLI Framework**: Built with Commander.js for command parsing
 - **TypeScript Setup**: Strict mode, ES modules, Node.js target
 - **Database Connection**: PostgreSQL connection pool via `pg` with `DATABASE_URL` from `.env`
 
-### Implemented Commands
+### Implemented Commands (Session 1)
 
-#### `analyze <file>`
+#### `analyze <file>` (stub version)
 - Reads SQL from file
 - Runs `EXPLAIN (FORMAT JSON)` against PostgreSQL
-- Outputs structured query execution plan
+- Outputs raw JSON query execution plan
 - Validates: single SELECT only, no multiple statements
 
 #### `optimize <file>` (stub)
-- Placeholder for future optimization suggestions
-
 #### `benchmark <file>` (stub)
-- Placeholder for future benchmarking
 
-### Project Structure
+---
+
+## Session 2 — Core Feature Build-out
+
+### What Changed
+
+#### `analyze <file>` — upgraded
+- Now prints a **colour-coded plan tree** using `chalk` instead of raw JSON
+- Added **ora spinner** for feedback while waiting on Postgres
+- Automatically runs plan analysis and prints optimization findings below the tree
+
+#### `optimize <file>` — implemented
+- Runs EXPLAIN and analyses the plan with `planAnalyzer.ts`
+- Prints numbered action items with severity badges: `CRITICAL`, `WARNING`, `INFO`
+- SQL suggestions are highlighted inline
+- Sets exit code 2 (critical), 1 (warning) — CI-friendly
+
+#### `benchmark <file> [--runs N]` — implemented
+- Runs the query N times (default: 10) measuring wall-clock time via `performance.now()`
+- Computes min / mean / p50 / p95 / p99 / max
+- Color-coded: green < 1ms, yellow < 100ms, red ≥ 100ms
+- Prints a stat table + individual run timings
+
+#### `baseline save <file> [--ref <ref>]` — NEW
+- Runs EXPLAIN and saves the plan + metadata as `<file>.baseline.json`
+- The `--ref` flag lets you tag it with a git ref (e.g. `main@abc123`)
+
+#### `compare <file>` — NEW
+- Loads the `.baseline.json` sibling file
+- Diffs current plan cost vs baseline cost
+- Flags regressions > 20% with a red banner and **exits with code 1**
+- Exits 0 on no regression or improvement
+
+### New Files
+
+#### `src/utils/planPrinter.ts`
+Renders an EXPLAIN JSON plan node recursively as a coloured terminal tree.
+- Yellow/red for expensive node types (Seq Scan, Hash, Sort)
+- Green for fast paths (Index Scan, Index Only Scan)
+- Shows cost, rows, actual times (if ANALYZE mode), filters
+
+#### `src/utils/planAnalyzer.ts`
+Static analysis rules that walk the plan tree:
+| Rule | Severity |
+|---|---|
+| Seq Scan on table > 1,000 estimated rows | CRITICAL |
+| Seq Scan on small table | INFO |
+| Node total cost > 10,000 | WARNING |
+| In-memory Sort step | WARNING |
+| Nested Loop driving a Seq Scan | CRITICAL |
+| Large Hash build (> 50,000 rows) | WARNING |
+
+#### `src/utils/baseline.ts`
+- `saveBaseline(file, plan, ref?)` → writes `.baseline.json`
+- `loadBaseline(file)` → reads it back
+- `diffCost(baseline, plan)` → returns delta + % change
+
+#### `src/db/explain.ts` — updated
+- Now supports `{ analyze: true }` option
+- When true: uses `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` for real timings
+
+#### `.github/workflows/querypilot.yml` — NEW
+Full CI pipeline:
+1. Spins up Postgres 16 via Docker service
+2. Seeds schema + 1,000 users / 5,000 orders
+3. Runs `qp analyze` on all `queries/*.sql`
+4. Runs `qp compare` against committed baselines
+5. Posts a PR comment if regression detected
+6. Fails the job with a clear error message
+
+#### `queries/slow.sql` — NEW
+Deliberately slow query for demonstration/testing — triggers multiple findings.
+
+### Updated Project Structure
 ```
 src/
-├── index.ts              # CLI entry point, command definitions
+├── index.ts                  ← updated (all 5 commands wired)
 ├── actions/
-│   └── analyze.ts        # Analyze command implementation
-└── db/
-    ├── connection.ts     # PostgreSQL connection pool
-    └── explain.ts        # EXPLAIN query execution
-```
+│   ├── analyze.ts            ← upgraded (pretty tree + findings)
+│   ├── benchmark.ts          ← NEW (timing loop, percentiles)
+│   ├── optimize.ts           ← NEW (action items with severity)
+│   └── compare.ts            ← NEW (baseline diff, regression detection)
+├── db/
+│   ├── connection.ts         ← unchanged
+│   └── explain.ts            ← updated (ANALYZE flag support)
+└── utils/
+    ├── planPrinter.ts        ← NEW (colour plan tree)
+    ├── planAnalyzer.ts       ← NEW (static analysis rules)
+    └── baseline.ts           ← NEW (snapshot I/O + diff)
 
-### Dependencies
-- `commander` - CLI framework
-- `pg` - PostgreSQL client
-- `dotenv` - Environment config
-- `tsx` - TypeScript execution (dev)
-- `typescript` - Type checking
-- `vitest` - Testing (not yet used)
+.github/
+└── workflows/
+    └── querypilot.yml        ← NEW (full CI pipeline)
+
+queries/
+├── report.sql                ← existing
+└── slow.sql                  ← NEW (bad query for demos)
+```
 
 ### Usage
 ```bash
-# Development
-npm run dev -- analyze ./queries/report.sql
+# Development (all commands)
+npm run dev -- analyze   ./queries/report.sql
+npm run dev -- optimize  ./queries/slow.sql
+npm run dev -- benchmark ./queries/report.sql --runs 20
+npm run dev -- baseline save ./queries/report.sql --ref main
+npm run dev -- compare   ./queries/report.sql
 
-# Production (after npx tsc + npm link)
-qp analyze ./queries/report.sql
+# Or use the shorthand npm scripts:
+npm run analyze   -- ./queries/report.sql
+npm run optimize  -- ./queries/slow.sql
+npm run benchmark -- ./queries/report.sql
+npm run compare   -- ./queries/report.sql
+
+# Type-check without running
+npm run typecheck
 ```
 
 ### Next Steps
-- [ ] Implement `optimize` command with index suggestions
-- [ ] Implement `benchmark` command with timing
-- [ ] Add GitHub Actions integration
-- [ ] Add baseline comparison logic
-- [ ] Support Prisma schema parsing
-- [ ] Add CI/CD pipeline for automated PR comments
+- [ ] Add Prisma schema parser (extract raw SQL from `.prisma` files)
+- [ ] Add LLM-powered query rewrite suggestions (Gemini/OpenAI API)
+- [ ] Add `qp report` command that outputs a Markdown summary for PR comments
+- [ ] Write vitest unit tests for `planAnalyzer.ts` and `baseline.ts`
+- [ ] Add `.env.example` file for onboarding
+- [ ] Support `--threshold` flag on `compare` to customize regression sensitivity

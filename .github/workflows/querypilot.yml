@@ -1,0 +1,184 @@
+# .github/workflows/querypilot.yml
+#
+# QueryPilot CI — Database Performance Regression Check
+#
+# Teaching note — what this file does:
+#   GitHub Actions reads YAML files in .github/workflows/ and runs them
+#   automatically on the events you specify (here: pull requests to main).
+#
+#   The workflow:
+#     1. Checks out your code
+#     2. Starts a real PostgreSQL database using Docker ("services:")
+#     3. Installs dependencies
+#     4. Seeds the database with a minimal schema (so EXPLAIN works)
+#     5. Runs `qp analyze` on any changed SQL files
+#     6. Runs `qp compare` to detect cost regressions vs the baseline
+#     7. Posts a PR comment if a regression is found
+#
+# Prerequisites:
+#   - You must have run `qp baseline save <file>` on main and committed the
+#     .baseline.json files — they're what `qp compare` diffs against.
+#   - Set GITHUB_TOKEN in your repo secrets (it's automatic in Actions).
+
+name: QueryPilot — Query Performance Check
+
+on:
+  pull_request:
+    branches: [main]
+    # Only run when SQL files or source files change
+    paths:
+      - "queries/**"
+      - "src/**"
+      - ".github/workflows/querypilot.yml"
+
+jobs:
+  query-performance:
+    name: Analyze Query Performance
+    runs-on: ubuntu-latest
+
+    # ── Spin up a real PostgreSQL instance ──────────────────────────────────
+    # Teaching note: GitHub Actions "services" are Docker containers that run
+    # alongside your job. Postgres will be available at localhost:5432.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: querypilot_test
+          POSTGRES_USER: querypilot
+          POSTGRES_PASSWORD: querypilot_secret
+        ports:
+          - 5432:5432
+        # Wait until Postgres is actually ready before running tests
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # ── 1. Check out the code ─────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Node.js ─────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── 3. Install dependencies ───────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 4. Seed the database schema ───────────────────────────────────────
+      # Teaching note: EXPLAIN needs the tables to exist, even if they're empty.
+      # We create a minimal schema that matches our sample queries.
+      - name: Seed database schema
+        env:
+          PGPASSWORD: querypilot_secret
+        run: |
+          psql -h localhost -U querypilot -d querypilot_test <<'SQL'
+            CREATE TABLE IF NOT EXISTS users (
+              id    SERIAL PRIMARY KEY,
+              email TEXT NOT NULL UNIQUE,
+              name  TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS orders (
+              id         SERIAL PRIMARY KEY,
+              user_id    INTEGER REFERENCES users(id),
+              total      NUMERIC(10,2),
+              created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            -- Insert enough rows for the planner to have meaningful statistics
+            INSERT INTO users (email, name)
+            SELECT
+              'user' || i || '@example.com',
+              'User ' || i
+            FROM generate_series(1, 1000) AS i
+            ON CONFLICT DO NOTHING;
+
+            INSERT INTO orders (user_id, total)
+            SELECT
+              (random() * 999 + 1)::int,
+              (random() * 999 + 1)::numeric(10,2)
+            FROM generate_series(1, 5000)
+            ON CONFLICT DO NOTHING;
+
+            ANALYZE;
+          SQL
+
+      # ── 5. Run qp analyze on all query files ──────────────────────────────
+      - name: Analyze queries
+        env:
+          DATABASE_URL: postgresql://querypilot:querypilot_secret@localhost:5432/querypilot_test
+        run: |
+          for f in queries/*.sql; do
+            echo "::group::Analyzing $f"
+            npx tsx src/index.ts analyze "$f" || true
+            echo "::endgroup::"
+          done
+
+      # ── 6. Run qp compare to detect regressions ───────────────────────────
+      # Teaching note: This step exits with code 1 if a regression is detected.
+      # We capture stdout/stderr to use in a PR comment.
+      - name: Compare against baselines
+        id: compare
+        env:
+          DATABASE_URL: postgresql://querypilot:querypilot_secret@localhost:5432/querypilot_test
+        run: |
+          EXIT=0
+          OUTPUT=""
+
+          for f in queries/*.sql; do
+            BASELINE="${f%.sql}.baseline.json"
+            if [ -f "$BASELINE" ]; then
+              echo "Comparing $f vs $BASELINE"
+              RESULT=$(npx tsx src/index.ts compare "$f" 2>&1) || EXIT=1
+              OUTPUT+="$RESULT\n"
+            else
+              echo "No baseline for $f — skipping compare (run: qp baseline save $f on main)"
+            fi
+          done
+
+          # Save output for the comment step
+          echo "result<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          exit $EXIT
+        continue-on-error: true
+
+      # ── 7. Post a PR comment if regression detected ───────────────────────
+      # Teaching note: We use the GitHub CLI (gh) which is pre-installed on
+      # GitHub-hosted runners. GITHUB_TOKEN is automatically available.
+      - name: Post regression comment
+        if: steps.compare.outputs.exit_code == '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ QueryPilot: Query Performance Regression Detected
+
+          A query in this PR has a significantly higher estimated cost than the baseline.
+
+          \`\`\`
+          ${{ steps.compare.outputs.result }}
+          \`\`\`
+
+          **Next steps:**
+          1. Run \`qp optimize <file>\` locally to see suggestions
+          2. Add an index or rewrite the query
+          3. Run \`qp benchmark <file>\` to verify the improvement
+          4. Push your fix — this check will re-run automatically
+
+          ---
+          *Posted by [QueryPilot](https://github.com/your-org/querypilot)*"
+
+      # ── 8. Fail the job if regression detected ────────────────────────────
+      - name: Fail on regression
+        if: steps.compare.outputs.exit_code == '1'
+        run: |
+          echo "::error::QueryPilot detected a query performance regression. See the PR comment for details."
+          exit 1
