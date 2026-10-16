@@ -28,7 +28,7 @@ export interface LLMContext {
 }
 
 const GEMINI_MODEL = "gemini-2.0-flash";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "llama-3.1-70b-versatile";
 
 function buildPrompt(ctx: LLMContext): string {
   const findingsText = ctx.findings
