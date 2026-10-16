@@ -138,12 +138,12 @@ npm run typecheck
 
 ### Completed
 - [x] `qp report <file>` — Markdown summary for PR comments
+- [x] `qp optimize --suggest` — LLM-powered query rewrite suggestions (gated on API key)
 
 ### Next Steps
 - [ ] Add `--threshold <pct>` flag on `compare` to customize regression sensitivity
 - [ ] Write vitest unit tests for `planAnalyzer.ts`, `baseline.ts`, and `prismaParser.ts`
 - [ ] Add `.env.example` file for onboarding
-- [ ] Add LLM-powered query rewrite suggestions (Gemini/OpenAI API)
 
 ---
 
