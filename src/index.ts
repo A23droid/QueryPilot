@@ -17,6 +17,7 @@ import { analyzeQuery } from "./actions/analyze.js";
 import { optimizeQuery } from "./actions/optimize.js";
 import { benchmarkQuery } from "./actions/benchmark.js";
 import { compareQuery, saveBaselineAction } from "./actions/compare.js";
+import { generateReport } from "./actions/report.js";
 import {
   parsePrismaSchema,
   readPrismaSchema,
@@ -88,6 +89,17 @@ program
   )
   .action(async (file: string) => {
     await compareQuery(file);
+  });
+
+// ── report ───────────────────────────────────────────────────────────────────
+program
+  .command("report <file>")
+  .description(
+    "Generate a Markdown summary of the plan, findings, and baseline diff for PR comments",
+  )
+  .action(async (file: string) => {
+    const report = await generateReport(file);
+    console.log(report);
   });
 
 // ── prisma ───────────────────────────────────────────────────────────────────

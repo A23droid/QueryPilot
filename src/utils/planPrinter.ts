@@ -53,24 +53,24 @@ function fmt(n: number | undefined, decimals = 2): string {
 // ── main export ─────────────────────────────────────────────────────────────
 
 /**
- * Print a plan node (and all its children) to stdout.
+ * Format a plan node (and all its children) as a plain-text string.
+ * Useful for embedding reports in Markdown or CI comments.
  * @param node  The plan node object from EXPLAIN JSON
  * @param depth Recursion depth — controls indentation (start at 0)
  */
-export function printPlanNode(node: PlanNode, depth = 0): void {
+export function formatPlanNode(node: PlanNode, depth = 0): string {
   const indent = "  ".repeat(depth);
   const connector = depth === 0 ? "" : "└─ ";
+  const lines: string[] = [];
 
   // ── Node heading ──────────────────────────────────────────────────────
   const relation = node["Relation Name"]
-    ? chalk.white(` on ${chalk.italic(node["Relation Name"])}`)
+    ? ` on ${node["Relation Name"]}`
     : "";
-  const indexHint = node["Index Name"]
-    ? chalk.dim(` [${node["Index Name"]}]`)
-    : "";
+  const indexHint = node["Index Name"] ? ` [${node["Index Name"]}]` : "";
 
-  console.log(
-    `${indent}${connector}${nodeTypeColor(node["Node Type"])}${relation}${indexHint}`,
+  lines.push(
+    `${indent}${connector}${node["Node Type"]}${relation}${indexHint}`,
   );
 
   // ── Cost / rows ───────────────────────────────────────────────────────
@@ -79,35 +79,39 @@ export function printPlanNode(node: PlanNode, depth = 0): void {
     `rows=${fmt(node["Plan Rows"], 0)}`,
   ];
 
-  // If EXPLAIN ANALYZE was run we also have actual timings:
   if (node["Actual Total Time"] !== undefined) {
-    costLine.push(
-      chalk.magenta(`actual=${fmt(node["Actual Total Time"])} ms`),
-    );
-    costLine.push(chalk.magenta(`actual_rows=${fmt(node["Actual Rows"], 0)}`));
+    costLine.push(`actual=${fmt(node["Actual Total Time"])} ms`);
+    costLine.push(`actual_rows=${fmt(node["Actual Rows"], 0)}`);
   }
 
-  console.log(`${indent}   ${chalk.dim(costLine.join("  "))}`);
+  lines.push(`${indent}   ${costLine.join("  ")}`);
 
   // ── Conditions / filters ──────────────────────────────────────────────
   if (node["Index Cond"]) {
-    console.log(
-      `${indent}   ${chalk.dim("index cond:")} ${chalk.white(node["Index Cond"])}`,
-    );
+    lines.push(`${indent}   index cond: ${node["Index Cond"]}`);
   }
   if (node["Filter"]) {
-    console.log(
-      `${indent}   ${chalk.dim("filter:    ")} ${chalk.red(node["Filter"])}`,
-    );
+    lines.push(`${indent}   filter: ${node["Filter"]}`);
   }
   if (node["Join Type"]) {
-    console.log(`${indent}   ${chalk.dim("join:")} ${node["Join Type"]}`);
+    lines.push(`${indent}   join: ${node["Join Type"]}`);
   }
 
   // ── Recurse into children ─────────────────────────────────────────────
   if (node.Plans && node.Plans.length > 0) {
     for (const child of node.Plans) {
-      printPlanNode(child, depth + 1);
+      lines.push(formatPlanNode(child, depth + 1));
     }
   }
+
+  return lines.join("\n");
+}
+
+/**
+ * Print a plan node (and all its children) to stdout.
+ * @param node  The plan node object from EXPLAIN JSON
+ * @param depth Recursion depth — controls indentation (start at 0)
+ */
+export function printPlanNode(node: PlanNode, depth = 0): void {
+  console.log(formatPlanNode(node, depth));
 }

@@ -136,12 +136,14 @@ npm run compare   -- ./queries/report.sql
 npm run typecheck
 ```
 
+### Completed
+- [x] `qp report <file>` — Markdown summary for PR comments
+
 ### Next Steps
-- [ ] Add LLM-powered query rewrite suggestions (Gemini/OpenAI API)
-- [ ] Add `qp report` command that outputs a Markdown summary for PR comments
+- [ ] Add `--threshold <pct>` flag on `compare` to customize regression sensitivity
 - [ ] Write vitest unit tests for `planAnalyzer.ts`, `baseline.ts`, and `prismaParser.ts`
 - [ ] Add `.env.example` file for onboarding
-- [ ] Add `--threshold` flag on `compare` to customize regression sensitivity
+- [ ] Add LLM-powered query rewrite suggestions (Gemini/OpenAI API)
 
 ---
 
