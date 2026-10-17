@@ -91,8 +91,13 @@ program
   .description(
     "Compare current query plan against a saved baseline — exits non-zero on regression",
   )
-  .action(async (file: string) => {
-    await compareQuery(file);
+  .option(
+    "-t, --threshold <number>",
+    "Regression threshold in percent (default: 20). The compare exits 1 if cost increases by more than this.",
+    "20",
+  )
+  .action(async (file: string, opts: { threshold: string }) => {
+    await compareQuery(file, parseFloat(opts.threshold));
   });
 
 // ── report ───────────────────────────────────────────────────────────────────
@@ -101,8 +106,13 @@ program
   .description(
     "Generate a Markdown summary of the plan, findings, and baseline diff for PR comments",
   )
-  .action(async (file: string) => {
-    const report = await generateReport(file);
+  .option(
+    "-t, --threshold <number>",
+    "Regression threshold in percent (default: 20)",
+    "20",
+  )
+  .action(async (file: string, opts: { threshold: string }) => {
+    const report = await generateReport(file, parseFloat(opts.threshold));
     console.log(report);
   });
 

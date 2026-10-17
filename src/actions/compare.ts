@@ -31,8 +31,8 @@ import {
 } from "../utils/baseline.js";
 import { pool } from "../db/connection.js";
 
-/** If cost increases by more than this %, flag as a regression. */
-const REGRESSION_THRESHOLD_PCT = 20;
+/** Default threshold: cost increase above this % is a regression. */
+const DEFAULT_REGRESSION_THRESHOLD_PCT = 20;
 
 // ── save sub-command ───────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ export async function saveBaselineAction(file: string, ref?: string) {
 
 // ── compare sub-command ────────────────────────────────────────────────────
 
-export async function compareQuery(file: string) {
+export async function compareQuery(file: string, threshold = DEFAULT_REGRESSION_THRESHOLD_PCT) {
   const spinner = ora(`Comparing ${chalk.bold(file)} against baseline`).start();
 
   try {
@@ -85,8 +85,8 @@ export async function compareQuery(file: string) {
 
     // ── Cost diff ──────────────────────────────────────────────────────
     const diff = diffCost(baseline, currentPlan);
-    const isRegression = diff.pctChange > REGRESSION_THRESHOLD_PCT;
-    const isImprovement = diff.pctChange < -REGRESSION_THRESHOLD_PCT;
+    const isRegression = diff.pctChange > threshold;
+    const isImprovement = diff.pctChange < -threshold;
 
     console.log("\n" + chalk.bold.underline("Cost Comparison"));
     console.log(chalk.dim("─".repeat(60)));
@@ -111,7 +111,7 @@ export async function compareQuery(file: string) {
       console.log(
         "\n" +
           chalk.bgRed.white(
-            ` ✖ REGRESSION: cost increased by ${diff.pctChange.toFixed(1)}% (threshold: ${REGRESSION_THRESHOLD_PCT}%) `,
+            ` ✖ REGRESSION: cost increased by ${diff.pctChange.toFixed(1)}% (threshold: ${threshold}%) `,
           ),
       );
 

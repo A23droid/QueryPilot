@@ -139,11 +139,13 @@ npm run typecheck
 ### Completed
 - [x] `qp report <file>` — Markdown summary for PR comments
 - [x] `qp optimize --suggest` — LLM-powered query rewrite suggestions (Groq Llama `llama-3.1-70b-versatile`, Gemini, or OpenAI; gated on API key)
+- [x] Add `--threshold <pct>` flag on `compare` to customize regression sensitivity
+- [x] Write vitest unit tests for `planAnalyzer.ts`, `baseline.ts`, and `prismaParser.ts`
+- [x] Add `.env.example` file for onboarding with DB and LLM configurations
 
 ### Next Steps
-- [ ] Add `--threshold <pct>` flag on `compare` to customize regression sensitivity
-- [ ] Write vitest unit tests for `planAnalyzer.ts`, `baseline.ts`, and `prismaParser.ts`
-- [ ] Add `.env.example` file for onboarding
+- [ ] Add pre-commit hooks or CI action for running test suite
+- [ ] Add support for multi-statement migrations or DDL analysis
 
 ---
 
@@ -223,4 +225,73 @@ npm run compare   -- ./queries/report.sql
 
 # Type-check without running
 npm run typecheck
+
+# Run test suite
+npm test
 ```
+
+---
+
+## Session 4 — Threshold Option, Unit Tests & Onboarding
+
+### What Changed
+
+#### `compare <file>` — `--threshold <pct>` flag
+- Added `-t, --threshold <number>` option (default: `20`) to `compare` command in [src/index.ts](file:///d:/Projects/QueryPilot/src/index.ts) and [src/actions/compare.ts](file:///d:/Projects/QueryPilot/src/actions/compare.ts)
+- Allows configuring custom sensitivity for regression failure threshold in CI or local usage
+- Updated banner and error output to reflect active threshold value
+
+#### Unit Test Suite — Vitest
+- Added [src/tests/planAnalyzer.test.ts](file:///d:/Projects/QueryPilot/src/tests/planAnalyzer.test.ts): unit tests covering all 6 static analysis rules (Seq Scan large/small, high cost, Sort, Nested Loop + Seq Scan child, Hash build size) and severity sorting.
+- Added [src/tests/baseline.test.ts](file:///d:/Projects/QueryPilot/src/tests/baseline.test.ts): tests covering path derivation, cost diff calculations (regression, improvement, zero cost safety), and snapshot filesystem I/O.
+- Added [src/tests/prismaParser.test.ts](file:///d:/Projects/QueryPilot/src/tests/prismaParser.test.ts): tests covering datasource/generator extraction, model and field parsing, type and attribute mapping, relations (`belongs-to`, `has-many`), and SQL/SELECT generation.
+
+#### Onboarding Configuration — `.env.example`
+- Expanded [.env.example](file:///d:/Projects/QueryPilot/.env.example) to include both Postgres connection details with Docker one-liner instructions and optional LLM keys (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`) for `qp optimize --suggest`.
+
+#### Documentation
+- Updated [docs/commands.md](file:///d:/Projects/QueryPilot/docs/commands.md) with `--threshold` flag details and updated project tree.
+
+---
+
+## Session 5 — Packaging, Distribution & Ship Readiness
+
+### What Changed
+
+#### `package.json` Distribution Setup
+- Configured `"main": "dist/index.js"` and `"types": "dist/index.d.ts"`
+- Added `"files": ["dist", "README.md", "LICENSE"]` to ensure clean publishing to npm
+- Added `"prepack": "npm run build"` hook so TypeScript build is guaranteed to run before packaging
+- Added `"report"` and `"prisma"` npm shortcut scripts
+- Added package description, keywords, and MIT license
+
+#### Repository & Licensing
+- Created root [README.md](file:///d:/Projects/QueryPilot/README.md) with badges, architecture overview, installation instructions, command table, and CI workflow template.
+- Added [LICENSE](file:///d:/Projects/QueryPilot/LICENSE) (MIT).
+
+#### CI Pipeline & Reporting
+- Added Type-check and Vitest unit testing steps to [.github/workflows/querypilot.yml](file:///d:/Projects/QueryPilot/.github/workflows/querypilot.yml)
+- Added `-t, --threshold <number>` flag support to `qp report <file>` in [src/actions/report.ts](file:///d:/Projects/QueryPilot/src/actions/report.ts) and [src/index.ts](file:///d:/Projects/QueryPilot/src/index.ts)
+
+---
+
+## Session 6 — Dedicated `tests/` Folder & Full Feature Test Suite
+
+### What Changed
+
+#### Dedicated `tests/` Directory
+Created top-level [tests/](file:///d:/Projects/QueryPilot/tests) containing test suites across every feature of QueryPilot:
+1. [tests/planPrinter.test.ts](file:///d:/Projects/QueryPilot/tests/planPrinter.test.ts) — Tree formatting, cost/rows, actual runtime, conditions, filters, recursion
+2. [tests/planAnalyzer.test.ts](file:///d:/Projects/QueryPilot/tests/planAnalyzer.test.ts) — All 6 static analysis rules, detection thresholds, severity sorting
+3. [tests/baseline.test.ts](file:///d:/Projects/QueryPilot/tests/baseline.test.ts) — Path resolution, diff calculation, snapshot persistence
+4. [tests/compare.test.ts](file:///d:/Projects/QueryPilot/tests/compare.test.ts) — Custom thresholds (`--threshold`), regression/improvement/neutral detection
+5. [tests/report.test.ts](file:///d:/Projects/QueryPilot/tests/report.test.ts) — Markdown report generation, table formatting, severity badges, diff table
+6. [tests/prismaParser.test.ts](file:///d:/Projects/QueryPilot/tests/prismaParser.test.ts) — Schema AST parsing, field attributes, relation detection, SQL generation
+7. [tests/llmSuggest.test.ts](file:///d:/Projects/QueryPilot/tests/llmSuggest.test.ts) — AI rewrite fallback messaging and configuration handling
+8. [tests/benchmark.test.ts](file:///d:/Projects/QueryPilot/tests/benchmark.test.ts) — Query validation, timing collection, percentile distribution math ($p50$, $p95$, $p99$, min, max, mean)
+
+#### Test Configuration
+- Created [vitest.config.ts](file:///d:/Projects/QueryPilot/vitest.config.ts) configured to discover all tests in `tests/**/*.test.ts`.
+- Excluded test folders from [tsconfig.json](file:///d:/Projects/QueryPilot/tsconfig.json) so `npm run build` only emits production artifacts into `dist/`.
+
+

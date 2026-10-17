@@ -47,7 +47,7 @@ function detectNode(node: PlanNode, findings: Finding[]): void {
       severity: "critical",
       nodeType: type,
       relation,
-      message: `Sequential scan on '${relation ?? "unknown"}' estimated ${rows.toLocaleString()} rows`,
+      message: `Sequential scan on '${relation ?? "unknown"}' estimated ${rows.toLocaleString("en-US")} rows`,
       suggestion: relation
         ? `Consider: CREATE INDEX ON ${relation} (<filtered_column>);\nOr use a covering index if you SELECT few columns.`
         : "Add an index on the column(s) in your WHERE clause.",
@@ -112,7 +112,7 @@ function detectNode(node: PlanNode, findings: Finding[]): void {
       findings.push({
         severity: "warning",
         nodeType: type,
-        message: `Hash build step materialises ~${hashRows.toLocaleString()} rows`,
+        message: `Hash build step materialises ~${hashRows.toLocaleString("en-US")} rows`,
         suggestion:
           "Large hash builds consume memory. Check work_mem setting and consider narrowing the join or adding a filter.",
       });

@@ -82,13 +82,32 @@ function stripComments(schema: string): string {
 
 function extractFieldAttributes(rest: string): string[] {
   const attrs: string[] = [];
-  const attrRegex = /@(\w+)(?:\(([^)]*)\))?/g;
-  let match: RegExpExecArray | null;
-  while ((match = attrRegex.exec(rest)) !== null) {
-    if (match[2] !== undefined) {
-      attrs.push(`@${match[1]}(${match[2]})`);
+  let i = 0;
+  while (i < rest.length) {
+    if (rest[i] === "@") {
+      let j = i + 1;
+      while (j < rest.length && rest[j] === "@") {
+        j++;
+      }
+      while (j < rest.length && /\w/.test(rest[j]!)) {
+        j++;
+      }
+      if (j < rest.length && rest[j] === "(") {
+        let depth = 1;
+        j++;
+        while (j < rest.length && depth > 0) {
+          if (rest[j] === "(") depth++;
+          else if (rest[j] === ")") depth--;
+          j++;
+        }
+        attrs.push(rest.slice(i, j));
+        i = j;
+      } else {
+        attrs.push(rest.slice(i, j));
+        i = j;
+      }
     } else {
-      attrs.push(`@${match[1]}`);
+      i++;
     }
   }
   return attrs;

@@ -19,10 +19,11 @@ QueryPilot CI integrates into your GitHub workflow to catch database performance
 
 ### Current Capabilities
 - **SQL analysis**: `qp analyze <file>` — runs `EXPLAIN (FORMAT JSON)` and prints a color-coded plan tree with optimization findings
-- **Optimization suggestions**: `qp optimize <file>` — prioritized action items with severity badges (CRITICAL/WARNING/INFO)
+- **Optimization suggestions**: `qp optimize <file> [--suggest]` — prioritized action items with severity badges (CRITICAL/WARNING/INFO) plus optional LLM query rewrites
 - **Benchmarking**: `qp benchmark <file> [--runs N]` — latency percentiles (p50/p95/p99)
 - **Prisma schema parsing**: `qp prisma <file> [--sql] [--analyze <model>]` — parses `.prisma` files, extracts models/fields/relations, generates `CREATE TABLE`/`SELECT` SQL
-- **Baseline management**: `qp baseline save <file> [--ref ]` — saves plan snapshot; `qp compare <file>` — diffs vs baseline, exits non-zero on regression (>20% cost increase)
+- **Baseline management**: `qp baseline save <file> [--ref <ref>]` — saves plan snapshot; `qp compare <file> [--threshold <pct>]` — diffs vs baseline, exits non-zero on regression (default >20% cost increase)
+- **PR reporting**: `qp report <file>` — outputs Markdown performance summary for GitHub PR comments
 - **CI pipeline**: `.github/workflows/querypilot.yml` — GitHub Actions with Postgres service, schema seeding, analyze + compare steps, PR comment on regression
 
 ### The Pitch

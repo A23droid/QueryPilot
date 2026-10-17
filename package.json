@@ -1,25 +1,44 @@
 {
   "name": "querypilot",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Catch slow database queries before they reach production. Automated performance testing layer for AI-generated and ORM-generated database code.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "qp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc --outDir dist",
     "typecheck": "tsc --noEmit",
+    "prepack": "npm run build",
     "analyze": "tsx src/index.ts analyze",
     "optimize": "tsx src/index.ts optimize",
     "benchmark": "tsx src/index.ts benchmark",
     "compare": "tsx src/index.ts compare",
+    "report": "tsx src/index.ts report",
+    "prisma": "tsx src/index.ts prisma",
     "test": "vitest run"
   },
-  "bin": {
-    "qp": "dist/index.js"
-  },
-  "keywords": [],
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "explain",
+    "performance",
+    "prisma",
+    "orm",
+    "ci",
+    "database",
+    "query-optimizer"
+  ],
   "author": "",
-  "license": "ISC",
-  "type":"module",
+  "license": "MIT",
+  "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "chalk": "^6.0.1",

@@ -280,12 +280,16 @@ cost, and flag regressions (>20% increase). Exits non-zero on regression.
 
 **CLI:**
 ```bash
-qp compare <file>
+qp compare <file> [-t, --threshold <pct>]
 # or via npm script:
 npm run compare -- <file>
 ```
 
-**Options:** none
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-t, --threshold <number>` | Regression threshold in percent. Exits with code 1 if cost increases by more than this. | `20` |
 
 **What it does:**
 1. Loads `.baseline.json` next to the SQL file (fails fast if missing)
@@ -424,14 +428,14 @@ Defined in `package.json`:
 | `dev` | `tsx src/index.ts` | Run CLI via tsx (no build step) |
 | `build` | `tsc --outDir dist` | Compile TypeScript to `dist/` |
 | `typecheck` | `tsc --noEmit` | Type-check without emitting |
+| `prepack` | `npm run build` | Auto-compiles dist before packaging/publishing |
 | `analyze` | `tsx src/index.ts analyze` | Run `analyze` command |
 | `optimize` | `tsx src/index.ts optimize` | Run `optimize` command |
 | `benchmark` | `tsx src/index.ts benchmark` | Run `benchmark` command |
-| `compare` | `tsc --noEmit` (n/a — no compare script) | — |
-| `test` | `vitest run` | Run vitest test suite |
-
-**Note:** There are no dedicated npm scripts for `baseline save`, `compare`, or `prisma`.
-Use `npx tsx src/index.ts <command>` or the globally-linked `qp` for those.
+| `compare` | `tsx src/index.ts compare` | Run `compare` command |
+| `report` | `tsx src/index.ts report` | Run `report` command |
+| `prisma` | `tsx src/index.ts prisma` | Run `prisma` command |
+| `test` | `vitest run` | Run vitest unit test suite |
 
 **Usage examples:**
 ```bash
@@ -491,10 +495,12 @@ npm run typecheck && npm run build
 
 ```
 D:\querypilot\
-├── package.json              ← bin: qp → dist/index.js, scripts
+├── package.json              ← bin: qp → dist/index.js, scripts, types
 ├── tsconfig.json             ← strict, nodenext, outDir: ./dist
+├── README.md                 ← project overview, quickstart & guide
+├── LICENSE                   ← MIT license
 ├── .env                      ← DATABASE_URL (gitignored, not committed)
-├── .env.example              ← template for onboarding (TODO)
+├── .env.example              ← template for onboarding (DB + LLM API keys)
 ├── OBJECTIVE.md              ← project pitch
 ├── PROGRESS.md               ← session notes & next steps
 ├── AGENTS.md                 ← agent instructions
@@ -506,11 +512,18 @@ D:\querypilot\
 │   │   ├── analyze.ts        ← qp analyze
 │   │   ├── benchmark.ts      ← qp benchmark
 │   │   ├── compare.ts        ← qp baseline save / qp compare
-│   │   └── optimize.ts       ← qp optimize
+│   │   ├── optimize.ts       ← qp optimize
+│   │   └── report.ts         ← qp report (Markdown PR summary)
 │   ├── db/
 │   │   ├── connection.ts     ← pg Pool + DATABASE_URL
 │   │   ├── explain.ts        ← EXPLAIN (FORMAT JSON) wrapper
 │   │   └── prismaParser.ts   ← .prisma schema parser
+│   ├── llm/
+│   │   └── suggest.ts        ← AI query rewrites (Groq, Gemini, OpenAI)
+│   ├── tests/
+│   │   ├── planAnalyzer.test.ts ← static analysis rule tests
+│   │   ├── baseline.test.ts     ← baseline snapshot & diff tests
+│   │   └── prismaParser.test.ts ← prisma schema parser tests
 │   └── utils/
 │       ├── planPrinter.ts    ← coloured plan tree renderer
 │       ├── planAnalyzer.ts   ← static analysis rules (findings)

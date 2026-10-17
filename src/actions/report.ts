@@ -19,8 +19,8 @@ import { analyzePlan } from "../utils/planAnalyzer.js";
 import { loadBaseline, diffCost } from "../utils/baseline.js";
 import { pool } from "../db/connection.js";
 
-/** If cost increases by more than this %, flag as a regression. */
-const REGRESSION_THRESHOLD_PCT = 20;
+/** Default threshold: cost increase above this % is flagged as a regression. */
+const DEFAULT_REGRESSION_THRESHOLD_PCT = 20;
 
 function severityIcon(severity: string): string {
   switch (severity) {
@@ -43,7 +43,10 @@ function fmtMs(n: number | undefined): string {
  * Build a Markdown report for a SQL file.
  * Returns the Markdown string (does not print to stdout).
  */
-export async function generateReport(file: string): Promise<string> {
+export async function generateReport(
+  file: string,
+  threshold = DEFAULT_REGRESSION_THRESHOLD_PCT,
+): Promise<string> {
   const sql = await readFile(file, "utf8");
   const plan = await explainQuery(sql);
   const findings = analyzePlan(plan);
@@ -87,8 +90,8 @@ export async function generateReport(file: string): Promise<string> {
   const baseline = await loadBaseline(file);
   if (baseline) {
     const diff = diffCost(baseline, plan);
-    const isRegression = diff.pctChange > REGRESSION_THRESHOLD_PCT;
-    const isImprovement = diff.pctChange < -REGRESSION_THRESHOLD_PCT;
+    const isRegression = diff.pctChange > threshold;
+    const isImprovement = diff.pctChange < -threshold;
 
     lines.push("## Cost Comparison vs Baseline");
     lines.push("");

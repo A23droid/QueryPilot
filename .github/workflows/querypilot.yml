@@ -71,6 +71,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # ── 3a. Type-check & Run Unit Tests ────────────────────────────────────
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm test
+
       # ── 4. Seed the database schema ───────────────────────────────────────
       # Teaching note: EXPLAIN needs the tables to exist, even if they're empty.
       # We create a minimal schema that matches our sample queries.
