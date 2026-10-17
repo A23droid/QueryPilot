@@ -1,215 +1,182 @@
-# QueryPilot 🚀
+# QueryPilot
 
-[![CI](https://github.com/your-org/querypilot/actions/workflows/querypilot.yml/badge.svg)](.github/workflows/querypilot.yml)
+> **Catch database performance regressions and govern autonomous database agents before they reach production.**
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![MCP](https://img.shields.io/badge/MCP-1.0-orange.svg)](https://modelcontextprotocol.io/)
+[![ArmorIQ](https://img.shields.io/badge/Security-ArmorIQ-purple.svg)](https://armoriq.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Catch slow database queries before they reach production.**  
-> A performance-testing and regression-prevention layer for AI-generated and ORM-generated database code.
+---
+
+## Overview
+
+Modern software development relies heavily on AI coding assistants and Object-Relational Mappers (ORMs like Prisma and Drizzle). While these tools write syntactically correct code rapidly, they frequently introduce two critical failure modes:
+
+1. **Silent Performance Regressions**: Full sequential table scans, unindexed sorts, and quadratic join explosions that pass unit tests but crash production databases under real load.
+2. **Autonomous Agent Security Risks**: When AI agents are given database credentials to optimize or debug queries, direct access creates unacceptable risk — agents can hallucinate destructive write queries (`DROP TABLE`, unapproved index locks) or leak sensitive records.
+
+**QueryPilot** solves both problems. It provides automated query plan analysis, CI regression prevention, and a **Model Context Protocol (MCP)** server governed by **ArmorIQ** zero-trust policy enforcement.
 
 ---
 
-## The Problem
-
-Developers increasingly rely on AI coding assistants and ORMs (Prisma, Drizzle, TypeORM). While these tools write syntactically correct queries fast, they often generate silent performance killers:
-- Unindexed table scans on growing tables
-- O(n²) nested loop joins
-- In-memory sorting and excessive hash builds
-- Function-wrapped columns preventing index usage
-
-Because query performance isn't routinely tested in CI, these regressions slip into production until users notice slow response times or your database spikes to 100% CPU.
-
-## The Solution
-
-**QueryPilot** runs in your local development workflow and your CI pipeline to inspect execution plans, benchmark query timings, and fail PRs that cause performance regressions against established baselines.
+## System Architecture
 
 ```
-       ┌──────────────────────────────┐
-       │   Developer opens a PR with  │
-       │     SQL or Prisma changes    │
-       └──────────────┬───────────────┘
-                      │
-                      ▼
-       ┌──────────────────────────────┐
-       │    QueryPilot CI Pipeline    │
-       │  • Runs EXPLAIN (FORMAT JSON)│
-       │  • Evaluates anti-patterns   │
-       │  • Diffs cost vs baseline    │
-       └──────────────┬───────────────┘
-                      │
-        ┌─────────────┴─────────────┐
-        │                           │
-  Regression?                  No Regression
-        │                           │
-        ▼                           ▼
- ❌ Fails PR Check            ✅ Passes PR Check
- Posts detailed breakdown
- with suggested indexes & rewrites
+                                      ┌────────────────────────────────────────┐
+                                      │         ArmorIQ Control Plane          │
+                                      │   • Validates Agent Identity           │
+                                      │   • Mints CSRG Cryptographic Tokens    │
+                                      │   • Evaluates Whitelist Policy         │
+                                      └──────────────────┬─────────────────────┘
+                                                         │
+┌─────────────────────────────┐   1. Request Tool Call   ▼
+│      QueryPilot Agent       │ ───────────────────> [ Intent Token Issued ]
+│  (Autonomous Query Analysis │                              │
+│   & Optimization Engine)    │ <────────────────────────────┘
+└──────────────┬──────────────┘   2. Invoke Protected Tool
+               │
+               │  Tool: "explain_query"  ──>  ✅ ALLOWED (Read-Only Plan Inspection)
+               │  Tool: "apply_index"    ──>  ⛔ BLOCKED (Unauthorized Schema Mutation)
+               ▼
+┌────────────────────────────────────────┐
+│         QueryPilot MCP Server          │
+│   (Streamable HTTP Transport - :3333)  │
+└──────────────────┬─────────────────────┘
+                   │
+                   │ (EXPLAIN FORMAT JSON)
+                   ▼
+┌────────────────────────────────────────┐
+│       PostgreSQL Database (Neon)       │
+└────────────────────────────────────────┘
 ```
 
 ---
 
-## Key Features
+## Core Capabilities
 
-- 🔍 **Visual Plan Tree**: Recursively renders PostgreSQL `EXPLAIN` execution plans with cost, row count, filter, and index condition highlights.
-- ⚡ **Deterministic Static Analyzer**: Flags anti-patterns (Seq Scans on large tables, unindexed sorts, dangerous nested loops) with `CRITICAL`, `WARNING`, and `INFO` badges.
-- 🤖 **AI-Powered Query Rewrites**: Optional `--suggest` mode uses Groq (Llama 3.1 70B), Gemini, or OpenAI to propose concrete SQL rewrites and exact index definitions.
-- ⏱️ **Latency Benchmarking**: Runs queries over configurable iterations with percentiles ($p50$, $p95$, $p99$, min, mean, max).
-- 📐 **Prisma Schema Parser**: Extracts models, fields, and relationships directly from `.prisma` schemas and generates DDL / `EXPLAIN` queries without requiring Prisma client generation.
-- 🛡️ **Baseline Regression Detection**: Captures plan snapshots (`.baseline.json`) and flags cost regressions exceeding customizable thresholds (`--threshold <pct>`).
-- 📝 **Markdown PR Reports**: Generates formatted markdown tables for automated GitHub Actions PR comments.
+- **Protected Autonomous Agent Loop**: An AI agent that inspects query execution plans, diagnoses bottlenecks via LLMs (Groq / Llama), and is strictly restricted by ArmorIQ from executing unapproved write operations.
+- **Model Context Protocol (MCP) Server**: Exposes database operations through the standard MCP interface over Streamable HTTP, eliminating the need to distribute root database credentials.
+- **Visual Plan Tree**: Recursively renders PostgreSQL `EXPLAIN (FORMAT JSON)` execution plans with cost highlights, row estimates, and filter conditions.
+- **Deterministic Static Analyzer**: Automatically flags anti-patterns (Sequential Scans on large tables, in-memory sorts, missing indexes) with categorized severity ratings (`CRITICAL`, `WARNING`, `INFO`).
+- **AI-Powered Query Rewrites**: Generates concrete SQL rewrites, index recommendations, and plain-English performance explanations.
+- **Prisma Schema Parser**: Reads `.prisma` schema files and generates matching SQL DDL and query simulations without requiring Prisma client generation.
+- **Baseline Regression Detection**: Captures plan snapshots (`.baseline.json`) and fails CI pull request checks if query execution costs regress beyond established thresholds.
 
 ---
 
-## Installation
+## Quick Start
 
-### Global Install
+### 1. Installation
+
 ```bash
-npm install -g querypilot
-# or
-npm link
+git clone https://github.com/your-org/querypilot.git
+cd querypilot
+npm install
 ```
 
-### Run without installing (npx)
-```bash
-npx querypilot --help
-```
+### 2. Environment Configuration
 
----
+Copy `.env.example` to `.env` and provide your credentials:
 
-## Quickstart
-
-### 1. Configure Database Connection
-Copy the example environment file:
 ```bash
 cp .env.example .env
 ```
 
-Set your PostgreSQL connection string in `.env`:
-```env
-DATABASE_URL=postgresql://postgres:secret@localhost:5432/mydb
+Key variables:
+- `DATABASE_URL`: PostgreSQL connection string (Neon, Supabase, or local Postgres).
+- `ARMORIQ_API_KEY`: ArmorIQ API key.
+- `ARMORIQ_USER_EMAIL`: ArmorIQ account email.
+- `GROQ_API_KEY`: Groq API key for Llama 3.1 query rewrites.
+- `QUERY_PILOT_MCP_TOKEN`: Secret Bearer token for the MCP server.
+
+### 3. Run the ArmorIQ Protected Agent
+
+Run the autonomous agent on a representative query:
+
+```bash
+npm run agent queries/nextjs-api-route.sql
 ```
 
-*Need a fast local PostgreSQL instance? Spin one up with Docker:*
-```bash
-docker run --name qp-postgres \
-  -e POSTGRES_PASSWORD=secret \
-  -e POSTGRES_DB=mydb \
-  -p 5432:5432 -d postgres:16
-```
-
-### 2. Analyze a Query
-Inspect an execution plan and see performance findings:
-```bash
-qp analyze queries/report.sql
-```
-
-### 3. Get Actionable Optimization Suggestions
-```bash
-qp optimize queries/slow.sql
-```
-*To get AI-powered SQL rewrites (requires `GROQ_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY`):*
-```bash
-qp optimize queries/slow.sql --suggest
-```
-
-### 4. Benchmark Query Latency
-```bash
-qp benchmark queries/report.sql --runs 20
-```
+The agent will:
+1. Request authorization for `explain_query` via ArmorIQ (**ALLOWED ✅**).
+2. Fetch the live PostgreSQL execution plan and analyze bottlenecks.
+3. Attempt to automatically execute `apply_index` (**BLOCKED ⛔** by ArmorIQ policy).
 
 ---
 
-## Command Reference
+## CLI Reference
 
-| Command | Description |
-|---|---|
-| `qp analyze <file>` | Runs `EXPLAIN (FORMAT JSON)` and outputs the color-coded plan tree with static analysis findings. |
-| `qp optimize <file> [--suggest]` | Prints prioritized action items and index suggestions. Exits with code 2 on critical findings, 1 on warnings. |
-| `qp benchmark <file> [-r, --runs N]` | Benchmarks query execution time over $N$ runs and prints min/mean/p50/p95/p99/max latency statistics. |
-| `qp baseline save <file> [--ref <ref>]` | Saves the query's current execution plan as `<file>.baseline.json` snapshot to commit to git. |
-| `qp compare <file> [-t, --threshold pct]` | Diffs the current plan cost against the committed baseline. Exits with code 1 if cost increases beyond threshold (default: 20%). |
-| `qp report <file> [-t, --threshold pct]` | Generates clean Markdown documentation of the plan, findings, and baseline diff (ideal for CI PR comments). |
-| `qp prisma <file> [--sql] [--analyze <model>]` | Parses `.prisma` schema file, displays models/relations, and optionally generates SQL or analyzes queries. |
-
-Full options and syntax details are documented in [docs/commands.md](docs/commands.md).
+| Command | Purpose |
+| :--- | :--- |
+| `npm run agent <file>` | Runs the ArmorIQ-governed autonomous AI agent loop on a SQL query |
+| `npm run mcp` | Starts the QueryPilot Model Context Protocol server on port 3333 |
+| `npm run analyze <file>` | Runs `EXPLAIN` and prints color-coded plan tree with findings |
+| `npm run analyze <file> -- --armoriq` | Runs query analysis through ArmorIQ authorization |
+| `npm run optimize <file> -- --suggest` | Analyzes plan and outputs LLM query rewrite recommendations |
+| `npm run benchmark <file> -- -r 10` | Measures query latency percentiles ($p50$, $p95$, $p99$) over $N$ runs |
+| `npm run prisma <file> -- --sql` | Parses a Prisma schema and generates corresponding SQL DDL |
+| `npm run compare <file> -- -t 20` | Diffs current plan cost vs baseline snapshot; exits 1 on regression |
+| `npm test` | Runs the test suite with Vitest |
 
 ---
 
-## CI / GitHub Actions Setup
+## Security Architecture
 
-QueryPilot includes a complete CI workflow template in `.github/workflows/querypilot.yml`.
-
-### Example CI Workflow
+QueryPilot's security model enforces the principle of least privilege using [armoriq.yaml](armoriq.yaml):
 
 ```yaml
-name: QueryPilot CI
-
-on:
-  pull_request:
-    paths:
-      - "queries/**"
-      - "prisma/schema.prisma"
-
-jobs:
-  query-check:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_PASSWORD: secret
-        ports:
-          - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npm test
-
-      # Compare against committed baselines
-      - name: Detect Query Regressions
-        env:
-          DATABASE_URL: postgresql://postgres:secret@localhost:5432/testdb
-        run: |
-          npx querypilot compare queries/report.sql --threshold 15
+version: v1
+identity:
+  api_key: $ARMORIQ_API_KEY
+  user_id: querypilot-user
+  agent_id: querypilot
+environment: sandbox
+proxy:
+  url: https://customer-proxy.armoriq.ai
+mcp_servers:
+  - id: querypilot-db
+    url: https://your-tunnel.trycloudflare.com/mcp
+    auth:
+      type: bearer
+      token: $QUERY_PILOT_MCP_TOKEN
+policy:
+  allow:
+    - querypilot-db.explain_query
+  deny: []
+intent:
+  ttl_seconds: 300
+  require_csrg: true
 ```
+
+- **Whitelist Enforcement**: Only actions explicitly defined under `policy.allow` can be executed.
+- **CSRG Merkle Proofs**: Every request requires Cryptographic State Root Generation (CSRG) token proofs matching the declared plan.
+- **Zero-Trust Boundary**: Even if an LLM hallucinates destructive DDL commands, ArmorIQ intercepts and rejects the call before it reaches PostgreSQL.
 
 ---
 
-## Development & Testing
+## Project Structure
 
-```bash
-# Clone the repository
-git clone https://github.com/your-org/querypilot.git
-cd querypilot
-
-# Install dependencies
-npm install
-
-# Run unit tests (no database required)
-npm test
-
-# Type-check TypeScript
-npm run typecheck
-
-# Build compiled JavaScript to dist/
-npm run build
 ```
-
----
-
-## Contributing
-
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change. Please ensure test coverage passes via `npm test`.
+querypilot/
+├── src/
+│   ├── actions/          # CLI command handlers (analyze, optimize, benchmark, compare)
+│   ├── db/               # PostgreSQL connection pool, explain wrappers, Prisma parser
+│   ├── llm/              # Groq / Llama query rewrite suggestions
+│   ├── mcp/              # MCP server implementation (Streamable HTTP transport)
+│   ├── security/         # ArmorIQ SDK client and policy enforcement bridge
+│   ├── utils/            # Plan visualizer, static analyzer, terminal markdown renderer
+│   ├── agent.ts          # Autonomous AI agent loop
+│   └── index.ts          # CLI entry point (Commander.js)
+├── queries/              # Sample queries, Next.js API routes, and Prisma schemas
+├── tests/                # Unit test suite (Vitest)
+├── armoriq.yaml          # ArmorIQ configuration and tool policy definitions
+├── SETUP.md              # Step-by-step installation and execution guide
+└── OBJECTIVE.md          # Project problem statement and design scope
+```
 
 ---
 
 ## License
 
-[MIT](LICENSE) © 2026 QueryPilot Contributors
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

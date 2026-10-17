@@ -1,0 +1,23 @@
+version: v1
+identity:
+  api_key: $ARMORIQ_API_KEY
+  user_id: querypilot-user
+  agent_id: querypilot
+environment: sandbox
+proxy:
+  url: https://customer-proxy.armoriq.ai
+  timeout: 30
+  max_retries: 3
+mcp_servers:
+  - id: querypilot-db
+    url: https://notifications-francisco-ribbon-energy.trycloudflare.com/mcp
+    auth:
+      type: bearer
+      token: $QUERY_PILOT_MCP_TOKEN
+policy:
+  allow:
+    - querypilot-db.explain_query
+  deny: []
+intent:
+  ttl_seconds: 300
+  require_csrg: true

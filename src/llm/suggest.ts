@@ -56,7 +56,12 @@ Tasks:
 1. For each finding, explain in plain English why it's a problem.
 2. Propose a concrete rewritten SQL query that fixes it.
 3. Recommend specific indexes (column names) if any are missing.
-4. Keep it concise — use Markdown with code blocks for SQL.
+
+Formatting Instructions (for CLI Terminal output):
+- DO NOT output markdown tables (| ... |). Markdown tables break across narrow terminals.
+- Use clear bullet points (•) and concise paragraphs instead.
+- Use sql code blocks for queries and index statements.
+- Keep it concise, actionable, and readable on a standard command-line terminal.
 
 Do not invent tables or columns that aren't visible in the query or schema. If you're unsure, say so.`;
 }

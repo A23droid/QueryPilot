@@ -1,0 +1,18 @@
+// Prisma schema representing Next.js App Router database model
+// Simulates:
+// - GET  /api/users?search=alex
+// - POST /api/users
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  email String @unique
+}

@@ -24,6 +24,7 @@ import { printPlanNode } from "../utils/planPrinter.js";
 import { analyzePlan } from "../utils/planAnalyzer.js";
 import { pool } from "../db/connection.js";
 import { suggestFixes } from "../llm/suggest.js";
+import { renderTerminalMarkdown } from "../utils/formatMarkdown.js";
 
 const SEVERITY_BADGE: Record<string, string> = {
   critical: chalk.bgRed.white(" CRITICAL "),
@@ -110,9 +111,9 @@ export async function optimizeQuery(
       const llmOutput = await suggestFixes({
         sql: sql,
         findings: findings,
-        schema,
+        ...(schema ? { schema } : {}),
       });
-      console.log("\n" + llmOutput + "\n");
+      console.log("\n" + renderTerminalMarkdown(llmOutput) + "\n");
     }
 
     // ── Exit code reflects severity ────────────────────────────────────
