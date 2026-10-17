@@ -94,9 +94,23 @@ export async function optimizeQuery(
 
     // ── LLM-powered rewrite suggestions ─────────────────────────────────
     if (opts.suggest) {
+      let schema: string | undefined;
+      try {
+        const { readPrismaSchema } = await import("../db/prismaParser.js");
+        const { existsSync } = await import("node:fs");
+        const prismaPath = "queries/schema.prisma";
+        if (existsSync(prismaPath)) {
+          schema = await readPrismaSchema(prismaPath).then((s) =>
+            JSON.stringify(s, null, 2),
+          );
+        }
+      } catch {
+        // ignore if schema not available
+      }
       const llmOutput = await suggestFixes({
         sql: sql,
         findings: findings,
+        schema,
       });
       console.log("\n" + llmOutput + "\n");
     }
