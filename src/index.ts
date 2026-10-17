@@ -14,6 +14,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { analyzeQuery } from "./actions/analyze.js";
+import { analyzeQueryAuthorized } from "./actions/analyzeAuthorized.js";
 import { optimizeQuery } from "./actions/optimize.js";
 import { benchmarkQuery } from "./actions/benchmark.js";
 import { compareQuery, saveBaselineAction } from "./actions/compare.js";
@@ -40,7 +41,12 @@ program
   .description(
     "Run EXPLAIN on a SQL file and print the execution plan with color-coded analysis",
   )
-  .action(async (file: string) => {
+  .option("--armoriq", "Use ArmorIQ authorization for database operations")
+  .action(async (file: string, opts: { armoriq?: boolean }) => {
+    if (opts.armoriq) {
+      await analyzeQueryAuthorized(file, { useArmorIQ: true });
+      return;
+    }
     await analyzeQuery(file);
   });
 

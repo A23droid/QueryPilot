@@ -40,6 +40,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@armoriq/sdk": "^0.6.10",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
