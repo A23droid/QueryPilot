@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QueryPilot — Catch DB Regressions Before They Ship</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --surface: #15181f;
+    --surface-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e8eb;
+    --muted: #8a909c;
+    --accent: #7c5cff;
+    --accent-2: #00d4aa;
+    --danger: #ff5c5c;
+    --warning: #ffb347;
+    --info: #5cb8ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(12px);
+    background: rgba(11, 13, 18, 0.7);
+    border-bottom: 1px solid var(--border);
+  }
+  nav .inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; max-width: 1100px; margin: 0 auto;
+  }
+  nav .brand { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; }
+  nav .brand span { color: var(--accent); }
+  nav .links { display: flex; gap: 24px; font-size: 14px; color: var(--muted); }
+  nav .links a { color: var(--muted); }
+  nav .links a:hover { color: var(--text); }
+  .cta { background: var(--accent); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+  .cta:hover { text-decoration: none; opacity: 0.9; }
+
+  /* Hero */
+  .hero { padding: 96px 0 64px; text-align: center; }
+  .hero h1 { font-size: 52px; line-height: 1.05; letter-spacing: -2px; margin: 0 0 20px; }
+  .hero h1 .grad { background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto 32px; }
+  .hero .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* Demo terminal */
+  .terminal {
+    background: #050608;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 720px;
+    margin: 48px auto 0;
+    box-shadow: 0 24px 80px rgba(124, 92, 255, 0.15);
+  }
+  .terminal .bar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; background: #0f1117; border-bottom: 1px solid var(--border); }
+  .terminal .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .terminal .dot.r { background: #ff5f56; }
+  .terminal .dot.y { background: #ffbd2e; }
+  .terminal .dot.g { background: #27c93f; }
+  .terminal .title { color: var(--muted); font-size: 12px; margin-left: 8px; }
+  .terminal pre {
+    margin: 0; padding: 20px; font-size: 13px; line-height: 1.55;
+    color: #c9d1d9; overflow-x: auto; white-space: pre;
+  }
+  .terminal .prompt { color: var(--accent-2); }
+  .terminal .cmd { color: #fff; font-weight: 600; }
+  .terminal .ok { color: var(--accent-2); }
+  .terminal .warn { color: var(--warning); }
+  .terminal .err { color: var(--danger); }
+  .terminal .muted { color: var(--muted); }
+
+  /* Sections */
+  section { padding: 80px 0; }
+  section h2 { font-size: 36px; letter-spacing: -1px; margin: 0 0 12px; }
+  section .sub { color: var(--muted); font-size: 17px; max-width: 640px; margin-bottom: 48px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card .icon { font-size: 24px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 8px; font-size: 18px; }
+  .card p { color: var(--muted); font-size: 14px; margin: 0; }
+
+  /* Architecture */
+  .arch {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 32px;
+    font-family: "JetBrains Mono", monospace; font-size: 13px;
+    color: var(--muted); overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* Commands table */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td code { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* Footer */
+  footer { padding: 48px 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; text-align: center; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 36px; }
+    section h2 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+  <nav>
+    <div class="inner">
+      <div class="brand">Query<span>Pilot</span></div>
+      <div class="links">
+        <a href="#features">Features</a>
+        <a href="#commands">Commands</a>
+        <a href="#arch">Architecture</a>
+        <a href="https://github.com/quwrof00/QueryPilot" target="_blank">GitHub</a>
+      </div>
+      <a class="cta" href="#install">Install</a>
+    </div>
+  </nav>
+
+  <header class="hero container">
+    <h1>Catch <span class="grad">database performance regressions</span> before they ship</h1>
+    <p>QueryPilot analyzes PostgreSQL execution plans, detects slow queries, prevents regressions in CI, and governs AI agents with zero-trust policy enforcement.</p>
+    <div class="actions">
+      <a class="cta" href="#install">Get Started</a>
+      <a class="cta" style="background: var(--surface-2); color: var(--text);" href="https://github.com/quwrof00/QueryPilot" target="_blank">View on GitHub →</a>
+    </div>
+
+    <div class="terminal">
+      <div class="bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">qp analyze queries/report.sql</span>
+      </div>
+      <pre><span class="prompt">$</span> <span class="cmd">qp analyze queries/report.sql</span>
+<span class="muted">Analyzing queries/report.sql</span>
+<span class="ok">✔ EXPLAIN complete</span>
+
+<span class="muted">Execution Plan</span>
+<span class="muted">──────────────────────────────────────────────────────</span>
+└─ Index Scan on users [users_pkey]
+   cost=8.29  rows=1
+   index cond: (id = 42)
+
+<span class="ok">✔ No performance issues detected.</span></pre>
+    </div>
+  </header>
+
+  <section id="features" class="container">
+    <h2>What it does</h2>
+    <p class="sub">Six commands that cover the full lifecycle from query inspection to CI regression prevention.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">🔍</div>
+        <h3>Analyze</h3>
+        <p>Run EXPLAIN (FORMAT JSON), render a color-coded plan tree, and surface findings like Seq Scan, Sort, and high-cost nodes.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛠️</div>
+        <h3>Optimize</h3>
+        <p>Numbered action items with copy-paste SQL suggestions. Optional LLM rewrites via Groq/Gemini/OpenAI.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⏱️</div>
+        <h3>Benchmark</h3>
+        <p>Run queries N times and report min/mean/p50/p95/p99/max latency.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📸</div>
+        <h3>Baseline</h3>
+        <p>Snapshot the current plan as a "known good" reference for future comparisons.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⚖️</div>
+        <h3>Compare</h3>
+        <p>Diff current plan vs baseline. Flags regressions above a threshold, exits non-zero for CI.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🧩</div>
+        <h3>Prisma</h3>
+        <p>Parse .prisma schemas, map models to SQL, generate CREATE TABLE and SELECT queries.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="commands" class="container">
+    <h2>Commands</h2>
+    <p class="sub">Install globally with <code>npm link</code> or run via <code>npx tsx src/index.ts &lt;cmd&gt;</code>.</p>
+    <table>
+      <thead>
+        <tr><th>Command</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>qp analyze &lt;file&gt;</code></td><td>EXPLAIN plan + findings</td></tr>
+        <tr><td><code>qp optimize &lt;file&gt; [--suggest]</code></td><td>Action items + optional LLM rewrites</td></tr>
+        <tr><td><code>qp benchmark &lt;file&gt; [--runs N]</code></td><td>Latency percentiles (default 10 runs)</td></tr>
+        <tr><td><code>qp baseline save &lt;file&gt; [--ref label]</code></td><td>Save plan snapshot</td></tr>
+        <tr><td><code>qp compare &lt;file&gt; [--threshold pct]</code></td><td>Diff vs baseline, exit non-zero on regression</td></tr>
+        <tr><td><code>qp prisma &lt;file&gt; [--sql] [--analyze model]</code></td><td>Parse Prisma schema, generate SQL</td></tr>
+        <tr><td><code>qp report &lt;file&gt;</code></td><td>Markdown summary for PR comments</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="arch" class="container">
+    <h2>Architecture</h2>
+    <p class="sub">QueryPilot connects to PostgreSQL, runs EXPLAIN, and surfaces findings. Optionally, AI agents can be governed through ArmorIQ's zero-trust policy layer.</p>
+    <div class="arch">┌────────────────────────────────────────────────────────────────────────────┐
+│                            ArmorIQ Control Plane                            │
+│                (Policy Enforcement + CSRG Token Minting)                      │
+└───────────────────────────────┬────────────────────────────────────────────┘
+                                │ 1. Intent capture + token issuance
+                                ▼
+┌───────────────────────────┐  2. Tool call with signed token  ┌─────────────────────────┐
+│      QueryPilot Agent      │ ───────────────────────────────► │   QueryPilot MCP Server  │
+│ (Plan analysis + LLM)      │                                  │   Streamable HTTP :3333  │
+└───────────────────────────┘ ◄──────────────────────────────── └─────────────────────────┘
+                                │ 3. Authorized tool execution
+                                ▼
+                      ┌──────────────────────────────────────┐
+                      │     PostgreSQL Database (Neon)       │
+                      │        Read-only query execution      │
+                      └──────────────────────────────────────┘</div>
+  </section>
+
+  <section id="install" class="container">
+    <h2>Install</h2>
+    <p class="sub">Requires Node.js 18+ and PostgreSQL. LLM and ArmorIQ are optional.</p>
+    <div class="terminal">
+      <div class="bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">setup</span>
+      </div>
+      <pre><span class="prompt">$</span> <span class="cmd">git clone https://github.com/quwrof00/QueryPilot.git</span>
+<span class="prompt">$</span> <span class="cmd">cd QueryPilot && npm install</span>
+<span class="prompt">$</span> <span class="cmd">cp .env.example .env</span>  <span class="muted"># edit DATABASE_URL (and optional keys)</span>
+<span class="prompt">$</span> <span class="cmd">npm run build && npm link</span>
+<span class="prompt">$</span> <span class="cmd">qp --version</span>
+<span class="ok">0.2.0</span></pre>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      Built by <a href="https://github.com/quwrof00" target="_blank">@quwrof00</a> ·
+      <a href="https://github.com/quwrof00/QueryPilot" target="_blank">Source on GitHub</a> ·
+      MIT License
+    </div>
+  </footer>
+
+  <script>
+    // Smooth scroll for nav anchors
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const id = a.getAttribute('href');
+        const el = document.querySelector(id);
+        if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth' }); }
+      });
+    });
+  </script>
+</body>
+</html>
+EOF
+echo "done"
