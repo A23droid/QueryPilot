@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QueryPilot — Architecture Map & Code Tour</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #238636;
+      --warning: #d29922;
+      --danger: #f85149;
+      --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header { margin-bottom: 2.5rem; text-align: center; }
+    h1 { color: #fff; font-size: 2.2rem; margin-bottom: 0.5rem; }
+    .tagline { color: var(--accent); font-size: 1.1rem; }
+    .badge-bar { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+    .badge {
+      font-size: 0.8rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .badge.success { background: rgba(35, 134, 54, 0.15); color: #3fb950; border-color: #3fb950; }
+    .badge.purple { background: rgba(188, 140, 255, 0.15); color: var(--purple); border-color: var(--purple); }
+
+    .diagram-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .diagram-card h2 { color: #fff; font-size: 1.4rem; margin-bottom: 1rem; }
+    
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+    .module-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .module-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+    .module-card h3 { color: #fff; font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .file-path { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .module-card p { font-size: 0.95rem; color: var(--text); margin-bottom: 0.5rem; }
+
+    .route-list { list-style: none; margin-top: 1rem; }
+    .route-item {
+      display: flex;
+      gap: 1rem;
+      padding: 0.75rem;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      align-items: center;
+    }
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .key-takeaway {
+      background: rgba(88, 166, 255, 0.08);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin-top: 2rem;
+    }
+    .key-takeaway h4 { color: #fff; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>QueryPilot — App Map & Code Tour</h1>
+      <p class="tagline">Catch database performance regressions & govern autonomous database agents before production</p>
+      <div class="badge-bar">
+        <span class="badge success">41/41 Tests Passing</span>
+        <span class="badge">TypeScript 5.0+</span>
+        <span class="badge">MCP 1.0</span>
+        <span class="badge purple">ArmorIQ Zero-Trust</span>
+      </div>
+    </header>
+
+    <div class="diagram-card">
+      <h2>System Architecture & Security Control Plane</h2>
+      <svg viewBox="0 0 800 240" style="width: 100%; height: auto; font-family: monospace;">
+        <!-- Agent Box -->
+        <rect x="20" y="30" width="220" height="70" rx="6" fill="#161b22" stroke="#58a6ff" stroke-width="2"/>
+        <text x="130" y="60" fill="#ffffff" text-anchor="middle" font-weight="bold">QueryPilot Agent / CLI</text>
+        <text x="130" y="80" fill="#8b949e" text-anchor="middle" font-size="12">Autonomous Diagnosis</text>
+
+        <!-- ArmorIQ Box -->
+        <rect x="300" y="30" width="220" height="70" rx="6" fill="#161b22" stroke="#bc8cff" stroke-width="2"/>
+        <text x="410" y="60" fill="#ffffff" text-anchor="middle" font-weight="bold">ArmorIQ Control Plane</text>
+        <text x="410" y="80" fill="#bc8cff" text-anchor="middle" font-size="12">CSRG Token Policy Engine</text>
+
+        <!-- MCP Server Box -->
+        <rect x="580" y="30" width="200" height="70" rx="6" fill="#161b22" stroke="#d29922" stroke-width="2"/>
+        <text x="680" y="60" fill="#ffffff" text-anchor="middle" font-weight="bold">QueryPilot MCP Server</text>
+        <text x="680" y="80" fill="#8b949e" text-anchor="middle" font-size="12">Streamable HTTP (:3333)</text>
+
+        <!-- Database Box -->
+        <rect x="300" y="150" width="220" height="60" rx="6" fill="#161b22" stroke="#238636" stroke-width="2"/>
+        <text x="410" y="185" fill="#3fb950" text-anchor="middle" font-weight="bold">PostgreSQL Database</text>
+
+        <!-- Arrows -->
+        <path d="M 240 65 L 300 65" stroke="#bc8cff" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M 520 65 L 580 65" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M 680 100 L 680 180 L 520 180" fill="none" stroke="#238636" stroke-width="2"/>
+      </svg>
+    </div>
+
+    <h2>Guided Code Tour Stops</h2>
+    <div class="route-list">
+      <div class="route-item">
+        <div class="step-num">1</div>
+        <div>
+          <strong>Deterministic Plan Analyzer</strong> — <code>src/utils/planAnalyzer.ts</code>
+          <p>Recursively walks the PostgreSQL execution plan AST, calculating startup/total cost, detecting sequential scans on large tables, and classifying severities.</p>
+        </div>
+      </div>
+      <div class="route-item">
+        <div class="step-num">2</div>
+        <div>
+          <strong>Visual Terminal Plan Printer</strong> — <code>src/utils/planPrinter.ts</code>
+          <p>Converts raw JSON plans into formatted, color-coded Unicode trees with ANSI alerts that highlight bottlenecks instantly in developer terminals.</p>
+        </div>
+      </div>
+      <div class="route-item">
+        <div class="step-num">3</div>
+        <div>
+          <strong>CI Baseline Regression Comparator</strong> — <code>src/actions/compare.ts</code>
+          <p>Compares PR query costs against stored baseline snapshots (<code>.baseline.json</code>), failing CI with exit code 1 if execution cost regresses &gt; 20%.</p>
+        </div>
+      </div>
+      <div class="route-item">
+        <div class="step-num">4</div>
+        <div>
+          <strong>AI Query Rewriter &amp; Prisma Context</strong> — <code>src/llm/suggest.ts</code> &amp; <code>src/db/prismaParser.ts</code>
+          <p>Pairs LLM intelligence (Groq / Gemini / OpenAI) with standalone Prisma schema parsing to generate exact index DDL and rewritten SQL.</p>
+        </div>
+      </div>
+      <div class="route-item">
+        <div class="step-num">5</div>
+        <div>
+          <strong>ArmorIQ Policy Enforcement &amp; MCP Server</strong> — <code>src/security/armoriq.ts</code> &amp; <code>src/mcp/server.ts</code>
+          <p>Exposes database tools over standard Model Context Protocol with cryptographic CSRG token verification. Permits read-only inspection; blocks mutations.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="key-takeaway">
+      <h4>Reusable Engineering Practice</h4>
+      <p><strong>Pair Deterministic Analysis with Governed LLM Action:</strong> Use fast, deterministic AST checks for objective anti-patterns (no hallucinations, zero latency), and use LLMs for creative synthesis under strict cryptographic policy token constraints.</p>
+    </div>
+  </div>
+</body>
+</html>
