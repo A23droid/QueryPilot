@@ -58,7 +58,7 @@ install:
     expire_in: 1 hour
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
     - if: '$CI_COMMIT_BRANCH == "develop"'
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ unit-tests:
     expire_in: 7 days
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
 
 regression-guard:
   stage: verify
@@ -150,7 +150,7 @@ agent-security-scan:
     expire_in: 90 days
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
 
 mcp-server-audit:
   stage: secure
@@ -192,7 +192,7 @@ mcp-server-audit:
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE: govern
@@ -249,7 +249,7 @@ policy-report:
       - governance-reports/
     expire_in: 90 days
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -271,9 +271,9 @@ docker-build:
     - echo "📤 Pushing to GitLab Container Registry..."
     - docker push "$DOCKER_IMAGE"
     - docker push "$DOCKER_IMAGE_LATEST"
-    - echo "✅ Image pushed: $DOCKER_IMAGE"
+    - 'echo "✅ Image pushed: $DOCKER_IMAGE"'
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE: release
@@ -309,7 +309,7 @@ deploy-staging:
         --quiet
     - echo "✅ Staging deployment complete"
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
 
 deploy-production:
   stage: release
@@ -339,7 +339,7 @@ deploy-production:
     - echo "✅ Production deployment complete"
   when: manual
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE: monitor
@@ -370,4 +370,4 @@ smoke-test:
       fi
   allow_failure: true
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
