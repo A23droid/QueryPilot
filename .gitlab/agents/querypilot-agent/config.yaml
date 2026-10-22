@@ -1,0 +1,63 @@
+# ============================================================
+# QueryPilot — GitLab Duo Agent Platform Configuration
+# File: .gitlab/agents/querypilot-agent/config.yaml
+#
+# This configures the GitLab Duo AI Agent for QueryPilot.
+# The agent governs autonomous database operations using
+# ArmorIQ zero-trust policy enforcement via MCP.
+#
+# Hackathon: GitLab Transcend — Life After Code
+# Autonomy Level: Supervised
+#   → Agent executes multi-step analysis autonomously
+#   → Human approves production deployment (manual gate)
+# ============================================================
+
+# Agent identity
+name: querypilot-agent
+description: |
+  Autonomous database query performance agent governed by ArmorIQ zero-trust
+  policy. Analyzes SQL execution plans, detects regressions, and enforces
+  security boundaries on AI-generated database operations.
+
+# MCP server integration — connects the GitLab Duo agent to the
+# QueryPilot MCP server for governed database tool access
+mcp:
+  servers:
+    - name: querypilot-db
+      url: "${QUERYPILOT_MCP_URL}"
+      auth:
+        type: bearer
+        token: "${QUERY_PILOT_MCP_TOKEN}"
+      tools:
+        - name: explain_query
+          description: Inspect PostgreSQL execution plan for a read-only SQL query
+          allowed: true
+        - name: apply_index
+          description: Apply a database index (write operation)
+          allowed: false   # Blocked by ArmorIQ policy — requires human approval
+
+# Triggering conditions
+triggers:
+  - on: merge_request
+    events:
+      - opened
+      - updated
+    actions:
+      - analyze_changed_queries
+      - post_regression_comment
+      - flag_security_violations
+
+  - on: pipeline
+    events:
+      - failed
+    actions:
+      - diagnose_failure
+      - suggest_fix
+
+# Agent capabilities
+capabilities:
+  - read_repository
+  - post_merge_request_comments
+  - read_pipeline_logs
+  - create_issues
+  - read_ci_artifacts

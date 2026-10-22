@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.git
+.github
+.agents
+.claude
+.kilo
+*.md
+!README.md
+tests/
+devpost/
+assets/
+docs/
+*.log

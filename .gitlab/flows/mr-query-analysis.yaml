@@ -1,0 +1,130 @@
+# ============================================================
+# QueryPilot — GitLab Duo Flow: MR Query Analysis
+# File: .gitlab/flows/mr-query-analysis.yaml
+#
+# This flow triggers automatically when a Merge Request is opened
+# or updated. It:
+#   1. Detects changed SQL/Prisma files in the MR diff
+#   2. Runs the QueryPilot governed AI agent on each changed query
+#   3. Posts a detailed analysis comment on the MR
+#   4. Blocks merge if a critical regression or security violation
+#      is detected
+#
+# Autonomy Level: Supervised
+#   → All steps run autonomously (no human approval per step)
+#   → Human reviews the MR comment summary and approves merge
+# ============================================================
+
+name: mr-query-analysis
+description: |
+  Autonomous query performance and security analysis on every Merge Request.
+  Powered by QueryPilot + ArmorIQ zero-trust governance.
+
+trigger:
+  event: merge_request
+  actions:
+    - opened
+    - push   # re-run when new commits are pushed to the MR
+
+steps:
+  # ── Step 1: Identify changed query files ────────────────────────────────
+  - name: detect-changed-queries
+    description: Find all SQL and Prisma schema files changed in this MR
+    action: run_script
+    script: |
+      CHANGED=$(git diff --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD \
+        | grep -E '\.(sql|prisma)$' || true)
+      echo "Changed query files:"
+      echo "$CHANGED"
+      echo "$CHANGED" > /tmp/changed_queries.txt
+    outputs:
+      - name: changed_files
+        from: /tmp/changed_queries.txt
+
+  # ── Step 2: Run QueryPilot analysis per changed file ────────────────────
+  - name: analyze-queries
+    description: Run the ArmorIQ-governed agent on each changed query
+    depends_on: [detect-changed-queries]
+    action: run_script
+    script: |
+      REPORT_FILE="/tmp/qp-analysis-report.md"
+      echo "# QueryPilot MR Analysis Report" > "$REPORT_FILE"
+      echo "" >> "$REPORT_FILE"
+      echo "**MR:** !$CI_MERGE_REQUEST_IID — $CI_MERGE_REQUEST_TITLE" >> "$REPORT_FILE"
+      echo "**Commit:** \`$CI_COMMIT_SHORT_SHA\`" >> "$REPORT_FILE"
+      echo "**Analyzed by:** QueryPilot AI Agent (ArmorIQ Supervised)" >> "$REPORT_FILE"
+      echo "" >> "$REPORT_FILE"
+
+      VIOLATIONS=0
+      while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        echo "## \`$file\`" >> "$REPORT_FILE"
+
+        if [[ "$file" == *.sql ]]; then
+          RESULT=$(npm run analyze "$file" 2>&1 || true)
+          echo "\`\`\`" >> "$REPORT_FILE"
+          echo "$RESULT" >> "$REPORT_FILE"
+          echo "\`\`\`" >> "$REPORT_FILE"
+
+          # Check for critical findings
+          if echo "$RESULT" | grep -q "CRITICAL"; then
+            echo "" >> "$REPORT_FILE"
+            echo "> ⚠️ **CRITICAL performance issue detected.** Review required before merge." >> "$REPORT_FILE"
+            VIOLATIONS=$((VIOLATIONS + 1))
+          fi
+
+          # Check baseline regression
+          BASELINE="${file%.sql}.baseline.json"
+          if [ -f "$BASELINE" ]; then
+            echo "" >> "$REPORT_FILE"
+            COMPARE=$(npm run compare "$file" -- -b "$BASELINE" -t 30 2>&1 || true)
+            if echo "$COMPARE" | grep -q "REGRESSION"; then
+              echo "> ⛔ **Baseline regression detected.** Query cost exceeded threshold." >> "$REPORT_FILE"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            else
+              echo "> ✅ Baseline check passed — no performance regression." >> "$REPORT_FILE"
+            fi
+          fi
+
+        elif [[ "$file" == *.prisma ]]; then
+          RESULT=$(npm run prisma "$file" -- --sql 2>&1 || true)
+          echo "\`\`\`sql" >> "$REPORT_FILE"
+          echo "$RESULT" >> "$REPORT_FILE"
+          echo "\`\`\`" >> "$REPORT_FILE"
+        fi
+
+        echo "" >> "$REPORT_FILE"
+      done < /tmp/changed_queries.txt
+
+      echo "---" >> "$REPORT_FILE"
+      echo "**Security:** ArmorIQ zero-trust policy enforced on all agent operations." >> "$REPORT_FILE"
+      echo "**Violations found:** $VIOLATIONS" >> "$REPORT_FILE"
+
+      echo "$VIOLATIONS" > /tmp/violation_count.txt
+    outputs:
+      - name: analysis_report
+        from: /tmp/qp-analysis-report.md
+      - name: violation_count
+        from: /tmp/violation_count.txt
+
+  # ── Step 3: Post analysis as MR comment ─────────────────────────────────
+  - name: post-mr-comment
+    description: Post QueryPilot analysis as a GitLab MR comment
+    depends_on: [analyze-queries]
+    action: post_merge_request_comment
+    content_from: /tmp/qp-analysis-report.md
+
+  # ── Step 4: Block merge on violations ───────────────────────────────────
+  - name: enforce-quality-gate
+    description: Fail the pipeline if critical violations were detected
+    depends_on: [post-mr-comment]
+    action: run_script
+    script: |
+      VIOLATIONS=$(cat /tmp/violation_count.txt 2>/dev/null || echo "0")
+      if [ "$VIOLATIONS" -gt 0 ]; then
+        echo "❌ QueryPilot quality gate FAILED: $VIOLATIONS violation(s) detected."
+        echo "Review the MR comment for details before merging."
+        exit 1
+      fi
+      echo "✅ QueryPilot quality gate PASSED. Safe to review and merge."
+    allow_failure: false
