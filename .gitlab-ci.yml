@@ -33,6 +33,7 @@ cache:
 # ── Variables ─────────────────────────────────────────────────────────────────
 variables:
   NODE_ENV: "ci"
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/querypilot_test"
   GCP_REGION: "us-central1"
   CLOUD_RUN_SERVICE: "querypilot-mcp"
   DOCKER_IMAGE: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
