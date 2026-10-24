@@ -361,6 +361,20 @@ deploy-production:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
       when: manual
 
+pages:
+  stage: release
+  needs: [install]
+  script:
+    - mkdir -p public
+    - cp index.html public/index.html
+    - cp -r assets public/assets 2>/dev/null || true
+    - echo "✅ QueryPilot live web demo deployed to GitLab Pages"
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
+
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE: monitor
 # Post-deploy smoke test: verify MCP server is live and security enforced
