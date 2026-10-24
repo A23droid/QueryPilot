@@ -19,6 +19,7 @@ import { optimizeQuery } from "./actions/optimize.js";
 import { benchmarkQuery } from "./actions/benchmark.js";
 import { compareQuery, saveBaselineAction } from "./actions/compare.js";
 import { generateReport } from "./actions/report.js";
+import { renderTerminalMarkdown } from "./utils/formatMarkdown.js";
 import {
   parsePrismaSchema,
   readPrismaSchema,
@@ -117,9 +118,17 @@ program
     "Regression threshold in percent (default: 20)",
     "20",
   )
-  .action(async (file: string, opts: { threshold: string }) => {
+  .option(
+    "--raw",
+    "Output raw unformatted Markdown (for redirecting to PR comment files)",
+  )
+  .action(async (file: string, opts: { threshold: string; raw?: boolean }) => {
     const report = await generateReport(file, parseFloat(opts.threshold));
-    console.log(report);
+    if (opts.raw || !process.stdout.isTTY) {
+      console.log(report);
+    } else {
+      console.log("\n" + renderTerminalMarkdown(report) + "\n");
+    }
   });
 
 // ── prisma ───────────────────────────────────────────────────────────────────

@@ -16,13 +16,12 @@
 
 SELECT
     u.id,
-    u.name,
     u.email,
     SUM(o.total) AS lifetime_value,
     COUNT(o.id)  AS order_count
 FROM users u
 JOIN orders o ON o.user_id = u.id
 WHERE DATE(o.created_at) >= '2024-01-01'
-GROUP BY u.id, u.name, u.email
+GROUP BY u.id, u.email
 ORDER BY lifetime_value DESC
-LIMIT 100
+LIMIT 100;

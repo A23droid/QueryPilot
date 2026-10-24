@@ -29,6 +29,7 @@ import {
   loadBaseline,
   diffCost,
 } from "../utils/baseline.js";
+import { diffCarbon } from "../utils/carbon.js";
 import { pool } from "../db/connection.js";
 
 /** Default threshold: cost increase above this % is a regression. */
@@ -104,6 +105,17 @@ export async function compareQuery(file: string, threshold = DEFAULT_REGRESSION_
 
     console.log(
       `  Delta:     ${deltaColour(`${arrow} ${Math.abs(diff.delta).toFixed(2)} (${diff.pctChange > 0 ? "+" : ""}${diff.pctChange.toFixed(1)}%)`)}`,
+    );
+
+    // ── Sustainability & Carbon Metric (SCI Framework) ─────────────
+    const carbon = diffCarbon(diff.baseline, diff.current);
+    console.log(chalk.dim("─".repeat(60)));
+    console.log(chalk.bold.green("  🌱 Software Carbon Intensity (SCI):"));
+    console.log(`     ${chalk.cyan(carbon.summary)}`);
+    console.log(
+      chalk.dim(
+        `     Energy Delta: ${carbon.deltaEnergyKwh > 0 ? "+" : ""}${carbon.deltaEnergyKwh} kWh | Carbon Delta: ${carbon.deltaCo2Grams > 0 ? "+" : ""}${carbon.deltaCo2Grams} gCO₂e`,
+      ),
     );
 
     // ── Regression / improvement banner ───────────────────────────────

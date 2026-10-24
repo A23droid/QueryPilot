@@ -17,6 +17,11 @@ import { explainQuery } from "../db/explain.js";
 import { formatPlanNode } from "../utils/planPrinter.js";
 import { analyzePlan } from "../utils/planAnalyzer.js";
 import { loadBaseline, diffCost } from "../utils/baseline.js";
+import {
+  diffCarbon,
+  formatCarbonMarkdown,
+  calculateCarbonMetrics,
+} from "../utils/carbon.js";
 import { pool } from "../db/connection.js";
 
 /** Default threshold: cost increase above this % is flagged as a regression. */
@@ -121,6 +126,22 @@ export async function generateReport(
       }
       lines.push("");
     }
+
+    // ── Sustainability & Carbon Intensity (SCI) ──────────────────────────
+    const carbonDiff = diffCarbon(diff.baseline, diff.current);
+    lines.push(formatCarbonMarkdown(carbonDiff));
+    lines.push("");
+  } else {
+    // Single plan carbon estimate
+    const cost = Number(plan["Total Cost"] ?? 0);
+    const metrics = calculateCarbonMetrics(cost);
+    lines.push("### 🌱 Software Carbon Intensity (SCI) Estimate");
+    lines.push(`> Quantified via Green Software Foundation SCI framework ($SCI = ((E \\times I) + M) / R$)`);
+    lines.push("");
+    lines.push(`- **Operational Energy:** \`${metrics.energyKwh} kWh\` per 10k executions`);
+    lines.push(`- **Carbon Footprint:** \`${metrics.co2Grams} gCO₂e\` per 10k executions`);
+    lines.push(`- **Est. Query CPU Time:** \`${metrics.estCpuMs} ms\``);
+    lines.push("");
   }
 
   // ── Footer ────────────────────────────────────────────────────────────

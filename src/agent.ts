@@ -23,6 +23,7 @@ import { analyzePlan } from "./utils/planAnalyzer.js";
 import { printPlanNode } from "./utils/planPrinter.js";
 import { pool } from "./db/connection.js";
 import { renderTerminalMarkdown } from "./utils/formatMarkdown.js";
+import { calculateCarbonMetrics } from "./utils/carbon.js";
 
 async function runAgent() {
   console.log(chalk.bold.cyan("\n========================================================"));
@@ -74,6 +75,15 @@ async function runAgent() {
   // ── Step 2: LLM Optimization Analysis ─────────────────────────────────────
   const findings = plan ? analyzePlan(plan) : [];
   console.log(chalk.bold(`\nDetected ${findings.length} performance bottlenecks.`));
+
+  if (plan && plan["Total Cost"]) {
+    const carbon = calculateCarbonMetrics(Number(plan["Total Cost"]));
+    console.log(
+      chalk.green(
+        `🌱 Green Compute (SCI): ~${carbon.energyKwh} kWh & ${carbon.co2Grams}g CO₂e per 10k executions (est. CPU: ${carbon.estCpuMs}ms)`,
+      ),
+    );
+  }
 
   const aiSpinner = ora("AI Agent analyzing plan bottlenecks and generating optimizations...").start();
   let suggestions = "";
