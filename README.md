@@ -60,8 +60,10 @@ Modern software development relies heavily on AI coding assistants and Object-Re
 - **Visual Plan Tree**: Recursively renders PostgreSQL `EXPLAIN (FORMAT JSON)` execution plans with cost highlights, row estimates, and filter conditions.
 - **Deterministic Static Analyzer**: Automatically flags anti-patterns (Sequential Scans on large tables, in-memory sorts, missing indexes) with categorized severity ratings (`CRITICAL`, `WARNING`, `INFO`).
 - **AI-Powered Query Rewrites**: Generates concrete SQL rewrites, index recommendations, and plain-English performance explanations.
+- **Live ORM Query Interception (`qp watch`)**: Runtime middleware for Prisma (and any ORM) that intercepts every query your app makes, runs EXPLAIN in the background, and streams regression alerts and SCI carbon metrics to a live terminal dashboard — zero latency added to your app.
 - **Prisma Schema Parser**: Reads `.prisma` schema files and generates matching SQL DDL and query simulations without requiring Prisma client generation.
 - **Baseline Regression Detection**: Captures plan snapshots (`.baseline.json`) and fails CI pull request checks if query execution costs regress beyond established thresholds.
+- **Software Carbon Intensity (SCI)**: Calculates per-query CO₂e emissions aligned with the Green Software Foundation SCI specification — embedded in every `qp compare`, `qp report`, and `qp watch` output.
 
 ---
 
@@ -114,10 +116,12 @@ The agent will:
 | `npm run analyze <file>` | Runs `EXPLAIN` and prints color-coded plan tree with findings |
 | `npm run analyze <file> -- --armoriq` | Runs query analysis through ArmorIQ authorization |
 | `npm run optimize <file> -- --suggest` | Analyzes plan and outputs LLM query rewrite recommendations |
-| `npm run benchmark <file> -- -r 10` | Measures query latency percentiles ($p50$, $p95$, $p99$) over $N$ runs |
+| `npm run benchmark <file> -- -r 10` | Measures query latency percentiles (p50, p95, p99) over N runs |
 | `npm run prisma <file> -- --sql` | Parses a Prisma schema and generates corresponding SQL DDL |
 | `npm run compare <file> -- -t 20` | Diffs current plan cost vs baseline snapshot; exits 1 on regression |
-| `npm test` | Runs the test suite with Vitest |
+| `npm run report <file>` | Generates rich Markdown PR comment with plan, findings, and SCI carbon |
+| `npm run watch` | Starts live ORM interceptor — attach Prisma middleware for real-time analysis |
+| `npm test` | Runs the test suite with Vitest (46 tests) |
 
 ---
 
@@ -160,16 +164,22 @@ intent:
 ```
 querypilot/
 ├── src/
-│   ├── actions/          # CLI command handlers (analyze, optimize, benchmark, compare)
+│   ├── actions/          # CLI command handlers (analyze, optimize, benchmark, compare, report, watch)
 │   ├── db/               # PostgreSQL connection pool, explain wrappers, Prisma parser
 │   ├── llm/              # Groq / Llama query rewrite suggestions
 │   ├── mcp/              # MCP server implementation (Streamable HTTP transport)
+│   ├── middleware/       # Prisma/ORM runtime query interceptor (attachQueryPilot)
 │   ├── security/         # ArmorIQ SDK client and policy enforcement bridge
-│   ├── utils/            # Plan visualizer, static analyzer, terminal markdown renderer
+│   ├── utils/            # Plan visualizer, analyzer, Chalk terminal renderer, SCI carbon
+│   ├── watch/            # qp watch server, live dashboard display, shared types
 │   ├── agent.ts          # Autonomous AI agent loop
 │   └── index.ts          # CLI entry point (Commander.js)
+├── examples/             # Integration examples and demo scripts
+│   ├── watch-demo.ts         # Self-contained qp watch simulator (20 query scenarios)
+│   ├── prisma-app-example.ts # Real-world Next.js/Express Prisma wiring guide
+│   └── python-sqlalchemy-example.py # Python SQLAlchemy integration
 ├── queries/              # Sample queries, Next.js API routes, and Prisma schemas
-├── tests/                # Unit test suite (Vitest)
+├── tests/                # Unit test suite (Vitest — 46 tests)
 ├── armoriq.yaml          # ArmorIQ configuration and tool policy definitions
 ├── SETUP.md              # Step-by-step installation and execution guide
 └── OBJECTIVE.md          # Project problem statement and design scope

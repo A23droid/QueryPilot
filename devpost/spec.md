@@ -101,8 +101,20 @@ Enforces zero-trust cryptographic intent tokens over standard MCP JSON-RPC endpo
 PRD ref: `prd.md > 4. ArmorIQ Zero-Trust Governance & MCP Server`.
 
 ### 7. Markdown PR Reporter (`src/actions/report.ts`, `src/utils/formatMarkdown.ts`)
-Generates GitHub-flavored Markdown tables for CI automated pull request commentary.  
+Generates GitHub-flavored Markdown tables for CI automated pull request commentary with Chalk terminal visualizer.  
 PRD ref: `prd.md > 5. Automated PR Markdown Reporting`.
+
+### 8. Live ORM Query Interceptor (`src/watch/server.ts`, `src/watch/display.ts`, `src/watch/types.ts`)
+Local HTTP interceptor on port 7432 streaming real-time EXPLAIN execution, regression detection, and SCI carbon estimation from running ORMs to an ANSI terminal dashboard.  
+PRD ref: `prd.md > 6. Live ORM Query Interceptor (qp watch)`.
+
+### 9. Prisma Middleware & ORM Adapters (`src/middleware/prismaPlugin.ts`)
+Non-blocking async telemetry plugin hooked into Prisma `$on('query')` events, forwarding queries to `qp watch` with zero added application latency.  
+PRD ref: `prd.md > 6. Live ORM Query Interceptor (qp watch)`.
+
+### 10. Software Carbon Intensity (SCI) Estimator (`src/utils/carbon.ts`)
+Green Software Foundation compliant energy and operational carbon estimator ($g\text{ CO}_2e$ and kWh per 10k executions) computed from plan cost.  
+PRD ref: `prd.md > 7. Software Carbon Intensity (SCI) Impact Metrics`.
 
 ## Data Model
 - **PlanNode Interface:**
@@ -116,6 +128,8 @@ PRD ref: `prd.md > 5. Automated PR Markdown Reporting`.
   - Record mapping query signatures to `{ cost: number, executionTime: number, timestamp: string }`.
 - **ArmorIQ Policy Schema (`armoriq.yaml`):**
   - Defines agent roles, permitted tool names (`explain_query`), and denied tool actions (`apply_index`).
+- **WatchEvent / WatchResult Interfaces (`src/watch/types.ts`):**
+  - Live query telemetry payload and enriched EXPLAIN + regression + SCI analysis result.
 
 ## File Structure
 ```
@@ -128,6 +142,10 @@ querypilot/
 │   ├── spec.md
 │   ├── checklist.md
 │   └── app-map.html
+├── examples/
+│   ├── watch-demo.ts             # 20-scenario live query simulator
+│   ├── prisma-app-example.ts     # Next.js/Express Prisma reference
+│   └── python-sqlalchemy-example.py # Python SQLAlchemy hook
 ├── src/
 │   ├── actions/
 │   │   ├── analyze.ts            # CLI analyze action
@@ -135,7 +153,8 @@ querypilot/
 │   │   ├── benchmark.ts          # Query benchmarking engine
 │   │   ├── compare.ts            # Baseline regression comparison
 │   │   ├── optimize.ts           # Autonomous optimization runner
-│   │   └── report.ts             # Markdown report generation
+│   │   ├── report.ts             # Markdown report generation
+│   │   └── watch.ts              # Live ORM interceptor CLI command
 │   ├── db/
 │   │   ├── connection.ts         # pg connection pool management
 │   │   ├── explain.ts            # EXPLAIN JSON execution
@@ -145,16 +164,23 @@ querypilot/
 │   │   └── suggest.ts            # LLM query rewrite suggestions
 │   ├── mcp/
 │   │   └── server.ts             # Model Context Protocol HTTP server
+│   ├── middleware/
+│   │   └── prismaPlugin.ts       # Prisma $on('query') async middleware
 │   ├── security/
 │   │   └── armoriq.ts            # ArmorIQ zero-trust verification
 │   ├── utils/
 │   │   ├── baseline.ts           # Baseline snapshot persistence
-│   │   ├── formatMarkdown.ts     # Markdown table formatting
+│   │   ├── carbon.ts             # SCI carbon intensity calculator
+│   │   ├── formatMarkdown.ts     # Chalk terminal markdown renderer
 │   │   ├── planAnalyzer.ts       # Deterministic plan AST analyzer
 │   │   └── planPrinter.ts        # Color-coded plan visualizer
+│   ├── watch/
+│   │   ├── display.ts            # Live streaming terminal dashboard
+│   │   ├── server.ts             # HTTP interceptor server (port 7432)
+│   │   └── types.ts              # WatchEvent & WatchResult types
 │   ├── agent.ts                  # Autonomous agent diagnosis loop
 │   └── index.ts                  # CLI entrypoint (qp)
-├── tests/                        # Vitest unit & integration test suite (41 tests)
+├── tests/                        # Vitest unit & integration test suite (46 tests)
 ├── package.json
 └── tsconfig.json
 ```

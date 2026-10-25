@@ -11,3 +11,5 @@ dist/
 *.tsbuildinfo
 .kilo/
 test-results/
+.claude/
+agent/

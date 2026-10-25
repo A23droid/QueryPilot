@@ -171,8 +171,8 @@ async function sendToWatchServer(
       if (result.regression && result.baseline !== undefined) {
         onRegression({
           sql: result.sql,
-          model: result.model,
-          operation: result.operation,
+          ...(result.model !== undefined && { model: result.model }),
+          ...(result.operation !== undefined && { operation: result.operation }),
           pctChange: result.pctChange,
           planCost: result.planCost,
           baseline: result.baseline,

@@ -46,10 +46,12 @@ QueryPilot immediately renders an indented visual execution plan tree, identifie
   - Prisma schema AST parser to extract models and generate query simulations without running Prisma client.
   - Model Context Protocol (MCP) server over Streamable HTTP (`:3333`).
   - ArmorIQ cryptographic intent token evaluation (`armoriq.yaml`) blocking unauthorized schema mutations.
-  - Automated PR Markdown comment generator.
+  - Automated PR Markdown comment generator with Chalk terminal visualizer.
+  - Live ORM runtime query interceptor (`qp watch`) streaming real-time EXPLAIN analysis and regression alerts for Prisma/Drizzle.
+  - Software Carbon Intensity (SCI) footprint calculator (kWh and CO2e per 10k executions).
 
 ## Later
-- Real-time PostgreSQL wire-protocol proxy for live query interception.
+- Kernel-level PostgreSQL wire-protocol proxy for non-ORM raw database traffic.
 - Automated PR bot integrating GitHub Apps for direct commit suggestions.
 - Support for MySQL and SQLite execution plan schemas.
 

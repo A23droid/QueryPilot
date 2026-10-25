@@ -14,11 +14,13 @@ expected output, and example invocations.
 5. [Command: `benchmark <file>`](#command-benchmark-file)
 6. [Command: `baseline save <file>`](#command-baseline-save-file)
 7. [Command: `compare <file>`](#command-compare-file)
-8. [Command: `prisma <file>`](#command-prisma-file)
-9. [npm Scripts](#npm-scripts)
-10. [CI Workflow](#ci-workflow)
-11. [Exit Codes](#exit-codes)
-12. [Troubleshooting](#troubleshooting)
+8. [Command: `report <file>`](#command-report-file)
+9. [Command: `watch`](#command-watch)
+10. [Command: `prisma <file>`](#command-prisma-file)
+11. [npm Scripts](#npm-scripts)
+12. [CI Workflow](#ci-workflow)
+13. [Exit Codes](#exit-codes)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -60,7 +62,9 @@ npm run <script-name> -- <args>
 | `qp optimize <file>` | Plan tree + prioritized action items with SQL suggestions | Yes | Coloured plan tree + numbered action items |
 | `qp benchmark <file>` | Run query N times, report latency percentiles | Yes | Stats table (min/mean/p50/p95/p99/max) |
 | `qp baseline save <file>` | Save current EXPLAIN plan as `.baseline.json` snapshot | Yes | Success message with saved path |
-| `qp compare <file>` | Diff current plan vs baseline, flag regressions | Yes | Coloured diff + regression banner |
+| `qp compare <file>` | Diff current plan vs baseline, flag regressions + SCI carbon delta | Yes | Coloured diff + regression banner + CO₂e table |
+| `qp report <file>` | Full Markdown PR comment with plan, findings, baseline diff, and SCI | Yes | Chalk-styled terminal output or raw Markdown |
+| `qp watch` | Start live ORM interceptor server — forward Prisma/app queries for real-time EXPLAIN | Yes | Live streaming terminal dashboard |
 | `qp prisma <file>` | Parse `.prisma` schema, print models/fields/relations | No | Model tree + optional SQL output |
 
 ---
@@ -491,49 +495,216 @@ npm run typecheck && npm run build
 
 ---
 
+---
+
+## Command: `report <file>`
+
+**Purpose:** Generate a rich Markdown summary of the query plan, static analysis findings,
+baseline cost diff, and Software Carbon Intensity (SCI) metrics — formatted for PR comments
+or rendered as a Chalk-styled dashboard in the terminal.
+
+**CLI:**
+```bash
+qp report <file>
+qp report <file> --raw          # raw Markdown (for redirecting to a file)
+qp report <file> -t 30          # custom regression threshold
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-t, --threshold <n>` | `20` | Regression threshold in percent |
+| `--raw` | off | Output raw unformatted Markdown (for CI file redirection) |
+
+**What it outputs (TTY mode):**
+- Chalk-styled header with file name and timestamp
+- Box-drawing table of plan metrics (node type, cost, rows, loops)
+- Colour-coded findings (CRITICAL in red, WARNING in yellow, INFO in dim)
+- Baseline diff table if a `.baseline.json` exists
+- SCI carbon impact table (energy kWh, CO₂e grams, CPU time estimate)
+
+**Example:**
+```bash
+qp report queries/slow.sql
+qp report queries/slow.sql --raw > /tmp/pr-comment.md
+```
+
+---
+
+## Command: `watch`
+
+**Purpose:** Start a local HTTP interceptor server that receives live query events from
+your running app (via Prisma middleware or any HTTP client) and streams real-time
+EXPLAIN analysis, regression detection, and SCI carbon metrics to the terminal.
+
+This is the primary way to analyze **ORM-generated SQL** (Prisma, Drizzle, TypeORM,
+SQLAlchemy) where the actual SQL is generated at runtime and never exists as a static file.
+
+**CLI:**
+```bash
+qp watch                   # starts on default port 7432
+qp watch --port 7433       # custom port
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-p, --port <n>` | `7432` | Port for the interceptor server |
+
+**How it works:**
+
+```
+Your app (Next.js / Express / FastAPI)
+    │
+    │  [Prisma $on('query') event fires AFTER query completes]
+    │
+    ▼
+attachQueryPilot() middleware
+    │
+    │  fire-and-forget POST /query  (async, non-blocking)
+    │
+    ▼
+qp watch server (port 7432)
+    │
+    │  EXPLAIN (FORMAT JSON) — does NOT re-run the query
+    │  Regression check vs stored baseline
+    │  SCI carbon calculation
+    │
+    ▼
+Live terminal dashboard  →  colour-coded row per query
+```
+
+**Overhead:** Zero latency added to your app. The `$on('query')` hook fires after the
+query already returned. The HTTP POST is async fire-and-forget. EXPLAIN runs in a
+separate process on a separate DB connection. Safe in dev/staging — never use in production.
+
+**Wiring Prisma (TypeScript/JavaScript):**
+
+```typescript
+// lib/db.ts  (or wherever you create your PrismaClient)
+import { PrismaClient } from '@prisma/client';
+import { attachQueryPilot } from 'querypilot/middleware';
+
+export const prisma = attachQueryPilot(
+  new PrismaClient({
+    log: [{ emit: 'event', level: 'query' }],  // ← required
+  }),
+  {
+    minDurationMs: 0,       // only forward queries slower than N ms (0 = all)
+    onRegression: ({ model, operation, pctChange }) => {
+      console.warn(`[QP] Regression: ${model}.${operation} +${pctChange}%`);
+    },
+  }
+);
+```
+
+**Python (SQLAlchemy):**
+```python
+from examples.python_sqlalchemy_example import attach_querypilot
+attach_querypilot(engine)   # hooks into after_cursor_execute event
+```
+
+**Generic HTTP (any language/ORM):** POST to `http://127.0.0.1:7432/query`:
+```json
+{
+  "sql": "SELECT ...",
+  "model": "User",
+  "operation": "findMany",
+  "durationMs": 14.7,
+  "source": "drizzle"
+}
+```
+
+**Running the demo** (no real app needed):
+```bash
+# Terminal 1
+npx tsx src/index.ts watch
+
+# Terminal 2
+npx tsx examples/watch-demo.ts
+```
+
+**Server endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/query` | POST | Receive a query event, run EXPLAIN, return WatchResult |
+| `/health` | GET | Liveness probe — returns `{ status: "ok", queries: N }` |
+| `/log` | GET | Returns recent query log as JSON (last 200 entries) |
+
+**Live dashboard columns:**
+
+| Column | Description |
+|--------|-------------|
+| Time | HH:MM:SS timestamp |
+| Source | `prisma` / `drizzle` / `raw` / custom |
+| Model / Operation | e.g. `User.findMany` |
+| Node Type | Index Scan (green), Seq Scan (red), Hash Join (yellow) |
+| Cost | PostgreSQL planner total cost |
+| Δ% | Cost change vs stored baseline (new / +N% / -N%) |
+| App ms | How long the query took in your app (from middleware) |
+| CO₂e/10k | Estimated grams CO₂e per 10,000 executions |
+
+**Regression indicator:** Rows with cost >20% above baseline are prefixed with `⚡` in red
+and a detailed breakdown line is printed below them.
+
+**Session summary:** Hit Ctrl+C to stop — prints total queries intercepted, regression count,
+seq scan count, and cumulative CO₂e for the session.
+
+---
+
 ## File Layout (reference)
 
 ```
 D:\querypilot\
-├── package.json              ← bin: qp → dist/index.js, scripts, types
+├── package.json              ← bin: qp → dist/index.js, scripts, exports map
 ├── tsconfig.json             ← strict, nodenext, outDir: ./dist
 ├── README.md                 ← project overview, quickstart & guide
 ├── LICENSE                   ← MIT license
 ├── .env                      ← DATABASE_URL (gitignored, not committed)
 ├── .env.example              ← template for onboarding (DB + LLM API keys)
 ├── OBJECTIVE.md              ← project pitch
-├── PROGRESS.md               ← session notes & next steps
-├── AGENTS.md                 ← agent instructions
 ├── docs/
 │   └── commands.md           ← this file
+├── examples/
+│   ├── watch-demo.ts         ← qp watch demo simulator (20 query scenarios)
+│   ├── prisma-app-example.ts ← Next.js/Express Prisma wiring reference
+│   └── python-sqlalchemy-example.py ← Python SQLAlchemy integration
 ├── src/
 │   ├── index.ts              ← CLI entry point (commander + all commands)
+│   ├── agent.ts              ← ArmorIQ-governed autonomous agent loop
 │   ├── actions/
 │   │   ├── analyze.ts        ← qp analyze
+│   │   ├── analyzeAuthorized.ts ← qp analyze --armoriq
 │   │   ├── benchmark.ts      ← qp benchmark
 │   │   ├── compare.ts        ← qp baseline save / qp compare
 │   │   ├── optimize.ts       ← qp optimize
-│   │   └── report.ts         ← qp report (Markdown PR summary)
+│   │   ├── report.ts         ← qp report (Markdown + Chalk TTY)
+│   │   └── watch.ts          ← qp watch (boots server + display)
 │   ├── db/
 │   │   ├── connection.ts     ← pg Pool + DATABASE_URL
 │   │   ├── explain.ts        ← EXPLAIN (FORMAT JSON) wrapper
 │   │   └── prismaParser.ts   ← .prisma schema parser
 │   ├── llm/
 │   │   └── suggest.ts        ← AI query rewrites (Groq, Gemini, OpenAI)
-│   ├── tests/
-│   │   ├── planAnalyzer.test.ts ← static analysis rule tests
-│   │   ├── baseline.test.ts     ← baseline snapshot & diff tests
-│   │   └── prismaParser.test.ts ← prisma schema parser tests
-│   └── utils/
-│       ├── planPrinter.ts    ← coloured plan tree renderer
-│       ├── planAnalyzer.ts   ← static analysis rules (findings)
-│       └── baseline.ts       ← snapshot I/O + cost diff
+│   ├── middleware/
+│   │   └── prismaPlugin.ts   ← attachQueryPilot() Prisma event middleware
+│   ├── utils/
+│   │   ├── planPrinter.ts    ← coloured plan tree renderer
+│   │   ├── planAnalyzer.ts   ← static analysis rules (findings)
+│   │   ├── baseline.ts       ← snapshot I/O + cost diff
+│   │   ├── formatMarkdown.ts ← Chalk terminal Markdown renderer
+│   │   └── carbon.ts         ← SCI carbon intensity calculator
+│   └── watch/
+│       ├── server.ts         ← HTTP interceptor server + EXPLAIN runner
+│       ├── display.ts        ← live terminal dashboard
+│       └── types.ts          ← WatchEvent / WatchResult interfaces
 ├── queries/
 │   ├── report.sql            ← sample SQL query
 │   ├── slow.sql              ← bad query for demos
 │   ├── schema.prisma         ← sample Prisma schema
 │   └── report.baseline.json  ← saved baseline snapshot
-└── .github/
-    └── workflows/
-        └── querypilot.yml    ← CI pipeline
+└── tests/                    ← Vitest unit tests (46 tests, 9 files)
 ```

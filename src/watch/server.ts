@@ -87,19 +87,19 @@ async function processQuery(event: WatchEvent): Promise<WatchResult> {
   const result: WatchResult = {
     timestamp: new Date().toISOString(),
     source: event.source ?? "prisma",
-    model: event.model,
-    operation: event.operation,
+    ...(event.model !== undefined && { model: event.model }),
+    ...(event.operation !== undefined && { operation: event.operation }),
     sql: event.sql,
-    appDurationMs: event.durationMs,
+    ...(event.durationMs !== undefined && { appDurationMs: event.durationMs }),
     planCost,
     nodeType,
-    baseline,
+    ...(baseline !== undefined && { baseline }),
     regression,
     pctChange: Math.round(pctChange * 10) / 10,
     co2Grams: carbon?.co2Grams ?? null,
     energyKwh: carbon?.energyKwh ?? null,
     analysisMs,
-    error,
+    ...(error !== undefined && { error }),
   };
 
   // Add to rolling log
