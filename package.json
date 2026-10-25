@@ -12,6 +12,10 @@
     "README.md",
     "LICENSE"
   ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./middleware": "./dist/middleware/prismaPlugin.js"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc --outDir dist",
@@ -23,6 +27,7 @@
     "compare": "tsx src/index.ts compare",
     "report": "tsx src/index.ts report",
     "prisma": "tsx src/index.ts prisma",
+    "watch": "tsx src/index.ts watch",
     "test": "vitest run",
     "mcp": "tsx src/mcp/server.ts",
     "agent": "tsx src/agent.ts"

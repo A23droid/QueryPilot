@@ -26,6 +26,7 @@ import {
   modelToSql,
   modelToSelectSql,
 } from "./db/prismaParser.js";
+import { startWatch } from "./actions/watch.js";
 
 const program = new Command();
 
@@ -209,6 +210,21 @@ program
       );
     }
     console.log("");
+  });
+
+// ── watch ────────────────────────────────────────────────────────────────────
+program
+  .command("watch")
+  .description(
+    "Start a live query interceptor server — forward Prisma/ORM queries for real-time EXPLAIN analysis",
+  )
+  .option(
+    "-p, --port <number>",
+    "Port to listen on (default: 7432)",
+    "7432",
+  )
+  .action(async (opts: { port: string }) => {
+    await startWatch(parseInt(opts.port, 10));
   });
 
 program.parseAsync(process.argv);
