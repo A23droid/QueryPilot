@@ -1,35 +1,44 @@
-# ── Build stage ───────────────────────────────────────────────────────────────
-FROM node:22-slim AS builder
+# syntax=docker/dockerfile:1
+
+# ── Stage 1: Build & Prune ──
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Copy dependency manifests
 COPY package*.json ./
+
+# Install all dependencies (including devDependencies for TypeScript compiler)
 RUN npm ci
 
+# Copy configuration and source files
 COPY tsconfig.json ./
 COPY src/ ./src/
 
+# Compile TypeScript to dist/
 RUN npm run build
 
-# ── Production stage ──────────────────────────────────────────────────────────
-FROM node:22-slim AS production
+# Prune development dependencies to keep production image minimal
+RUN npm prune --omit=dev
+
+# ── Stage 2: Production Runner ──
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=8080
 
-# Copy only what's needed to run the MCP server
-COPY package*.json ./
-RUN npm ci --omit=dev
+# Switch to non-root user built into Node.js image
+USER node
 
-COPY --from=builder /app/dist ./dist
-COPY queries/ ./queries/
-COPY armoriq.yaml ./
+# Copy runtime files with correct ownership
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/dist ./dist
 
-# MCP server listens on port 3333
-EXPOSE 3333
+# Cloud Run injects PORT (default 8080)
+EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3333/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
-
+# Run compiled MCP Server without requiring tsx in production
 CMD ["node", "dist/mcp/server.js"]

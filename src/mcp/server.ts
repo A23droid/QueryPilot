@@ -20,19 +20,13 @@ import { explainQuery } from "../db/explain.js";
 const app = express();
 app.use(express.json());
 
-const port = Number(process.env.MCP_PORT ?? 3333);
-const expectedToken = process.env.QUERY_PILOT_MCP_TOKEN;
-
-if (!expectedToken) {
-  throw new Error("QUERY_PILOT_MCP_TOKEN is missing");
-}
-
-function authorized(header: string | undefined): boolean {
-  if (!header || !header.startsWith("Bearer ")) return false;
+export function authorized(header: string | undefined): boolean {
+  const expectedToken = process.env.QUERY_PILOT_MCP_TOKEN;
+  if (!expectedToken || !header || !header.startsWith("Bearer ")) return false;
 
   const token = header.slice(7);
   const supplied = Buffer.from(token);
-  const expected = Buffer.from(expectedToken!);
+  const expected = Buffer.from(expectedToken);
 
   return (
     supplied.length === expected.length &&
@@ -73,15 +67,17 @@ app.post("/mcp", async (req, res) => {
           ],
         };
       } catch (error) {
+        const rawMessage =
+          error instanceof Error
+            ? error.message
+            : "Query analysis failed";
+        const sanitized = rawMessage.replace(/:\/\/([^:]+):([^@]+)@/g, "://$1:***@");
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text:
-                error instanceof Error
-                  ? error.message
-                  : "Query analysis failed",
+              text: sanitized,
             },
           ],
         };
@@ -110,6 +106,32 @@ app.post("/mcp", async (req, res) => {
   }
 });
 
-app.listen(port, "127.0.0.1", () => {
-  console.log(`QueryPilot MCP server listening on port ${port}`);
-});
+export function startServer(customPort?: number, customHost?: string) {
+  const port = customPort ?? Number(process.env.PORT || process.env.MCP_PORT || 8080);
+  const host = customHost ?? process.env.HOST ?? "0.0.0.0";
+
+  if (!process.env.QUERY_PILOT_MCP_TOKEN) {
+    throw new Error("QUERY_PILOT_MCP_TOKEN environment variable is missing");
+  }
+
+  const server = app.listen(port, host, () => {
+    console.log(`QueryPilot MCP server listening on ${host}:${port}`);
+  });
+
+  const shutdown = () => {
+    server.close(() => {
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+
+  return server;
+}
+
+export { app };
+
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}

@@ -30,6 +30,7 @@
     "watch": "tsx src/index.ts watch",
     "test": "vitest run",
     "mcp": "tsx src/mcp/server.ts",
+    "start": "node dist/mcp/server.js",
     "agent": "tsx src/agent.ts"
   },
   "keywords": [

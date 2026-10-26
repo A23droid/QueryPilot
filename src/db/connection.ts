@@ -8,7 +8,7 @@ const connectionString =
     : undefined);
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL is missing from .env");
+  throw new Error("DATABASE_URL environment variable is missing");
 }
 
 export const pool = new Pool({

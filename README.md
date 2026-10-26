@@ -112,7 +112,8 @@ The agent will:
 | Command | Purpose |
 | :--- | :--- |
 | `npm run agent <file>` | Runs the ArmorIQ-governed autonomous AI agent loop on a SQL query |
-| `npm run mcp` | Starts the QueryPilot Model Context Protocol server on port 3333 |
+| `npm run mcp` | Starts the QueryPilot MCP dev server via tsx on port 3333/8080 |
+| `npm start` | Starts the production compiled MCP server (`dist/mcp/server.js`) |
 | `npm run analyze <file>` | Runs `EXPLAIN` and prints color-coded plan tree with findings |
 | `npm run analyze <file> -- --armoriq` | Runs query analysis through ArmorIQ authorization |
 | `npm run optimize <file> -- --suggest` | Analyzes plan and outputs LLM query rewrite recommendations |
@@ -121,7 +122,7 @@ The agent will:
 | `npm run compare <file> -- -t 20` | Diffs current plan cost vs baseline snapshot; exits 1 on regression |
 | `npm run report <file>` | Generates rich Markdown PR comment with plan, findings, and SCI carbon |
 | `npm run watch` | Starts live ORM interceptor — attach Prisma middleware for real-time analysis |
-| `npm test` | Runs the test suite with Vitest (46 tests) |
+| `npm test` | Runs the test suite with Vitest (57 tests) |
 
 ---
 
