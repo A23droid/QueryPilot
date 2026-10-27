@@ -5,12 +5,12 @@ identity:
   agent_id: querypilot
 environment: sandbox
 proxy:
-  url: https://customer-proxy.armoriq.ai
+  url: https://proxy.armoriq.ai
   timeout: 30
   max_retries: 3
 mcp_servers:
   - id: querypilot-db
-    url: https://notifications-francisco-ribbon-energy.trycloudflare.com/mcp
+    url: https://querypilot-mcp-w6nmvbbp2a-el.a.run.app/mcp
     auth:
       type: bearer
       token: $QUERY_PILOT_MCP_TOKEN

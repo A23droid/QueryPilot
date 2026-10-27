@@ -6,7 +6,6 @@
  * - Authenticates requests via constant-time Bearer token check
  * - Registers database tools:
  *     • explain_query: Inspects PostgreSQL execution plan via JSON format
- * - Registered with ArmorIQ control plane as 'querypilot-db'
  */
 
 import "dotenv/config";
@@ -19,6 +18,14 @@ import { explainQuery } from "../db/explain.js";
 
 const app = express();
 app.use(express.json());
+
+export function sanitizeSecretText(input: unknown): string {
+  const text = input instanceof Error ? input.message : String(input);
+  return text
+    .replace(/:\/\/([^:]+):([^@]+)@/g, "://$1:***@")
+    .replace(/Bearer\s+[A-Za-z0-9_\-\.~]+/gi, "Bearer ***")
+    .replace(/ak_(?:live|claw|test)_[A-Za-z0-9]+/gi, "ak_***");
+}
 
 export function authorized(header: string | undefined): boolean {
   const expectedToken = process.env.QUERY_PILOT_MCP_TOKEN;
@@ -71,7 +78,7 @@ app.post("/mcp", async (req, res) => {
           error instanceof Error
             ? error.message
             : "Query analysis failed";
-        const sanitized = rawMessage.replace(/:\/\/([^:]+):([^@]+)@/g, "://$1:***@");
+        const sanitized = sanitizeSecretText(rawMessage);
         return {
           isError: true,
           content: [
@@ -98,7 +105,7 @@ app.post("/mcp", async (req, res) => {
     await server.connect(transport as any);
     await transport.handleRequest(req, res, req.body);
   } catch (error) {
-    console.error("MCP request failed:", error);
+    console.error("MCP request failed:", sanitizeSecretText(error));
 
     if (!res.headersSent) {
       res.status(500).json({ error: "MCP request failed" });

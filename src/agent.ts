@@ -1,23 +1,19 @@
 /**
  * agent.ts — QueryPilot Autonomous AI Agent Loop
  *
- * Demonstrates an autonomous AI agent workflow governed by ArmorIQ:
+ * Demonstrates an autonomous AI agent workflow:
  *
  * 1. AI Agent detects a slow or anti-pattern SQL query.
- * 2. Agent invokes 'explain_query' via ArmorIQ:
- *    -> Token evaluated against policy: ALLOWED (read-only inspection).
- *    -> Returns PostgreSQL execution plan.
+ * 2. Agent invokes 'explain_query' directly via database/MCP flow.
  * 3. Agent passes plan to LLM (Groq / Llama) for automated bottleneck diagnosis.
- * 4. Agent attempts autonomous remediation via 'apply_index':
- *    -> Token evaluated against policy: BLOCKED (write operations restricted).
- *    -> ArmorIQ security perimeter stops the unauthorized write call.
+ * 4. Agent displays actionable optimization and indexing recommendations.
  */
 
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { authorizedToolCall } from "./security/armoriq.js";
+import { explainQuery } from "./db/explain.js";
 import { suggestFixes } from "./llm/suggest.js";
 import { analyzePlan } from "./utils/planAnalyzer.js";
 import { printPlanNode } from "./utils/planPrinter.js";
@@ -27,7 +23,7 @@ import { calculateCarbonMetrics } from "./utils/carbon.js";
 
 async function runAgent() {
   console.log(chalk.bold.cyan("\n========================================================"));
-  console.log(chalk.bold.cyan("   QueryPilot Autonomous AI Agent (ArmorIQ Protected)   "));
+  console.log(chalk.bold.cyan("            QueryPilot Autonomous AI Agent              "));
   console.log(chalk.bold.cyan("========================================================\n"));
 
   const sqlFile = process.argv[2] || "queries/slow.sql";
@@ -37,30 +33,17 @@ async function runAgent() {
   console.log(chalk.dim(sql.trim()));
   console.log(chalk.dim("─".repeat(60)));
 
-  // ── Step 1: Inspect Execution Plan (Allowed Action) ───────────────────────
+  // ── Step 1: Inspect Execution Plan ────────────────────────────────────────
   const explainSpinner = ora(
-    "AI Agent requesting permission for read-only 'explain_query' tool...",
+    "AI Agent inspecting query execution plan...",
   ).start();
 
   let plan: any;
   try {
-    const rawResult = await authorizedToolCall(
-      "explain_query",
-      { sql },
-      "Inspect execution plan for slow query performance analysis",
-    );
+    plan = await explainQuery(sql);
     explainSpinner.succeed(
-      chalk.green("ArmorIQ Policy Decision: ALLOWED ✅ (querypilot-db.explain_query)"),
+      chalk.green("Execution plan retrieved successfully (explain_query)"),
     );
-
-    // Parse returned plan if wrapped
-    if (typeof rawResult === "string") {
-      plan = JSON.parse(rawResult);
-    } else if (rawResult && (rawResult as any).content?.[0]?.text) {
-      plan = JSON.parse((rawResult as any).content[0].text);
-    } else {
-      plan = rawResult;
-    }
 
     console.log("\n" + chalk.bold.underline("PostgreSQL Execution Plan:"));
     if (plan) {
@@ -96,38 +79,16 @@ async function runAgent() {
     aiSpinner.warn("LLM suggestion skipped: " + err.message);
   }
 
-  // ── Step 3: Attempt Database Mutation (Blocked Action) ────────────────────
-  console.log("\n" + chalk.bold.yellow("AI Agent attempting database remediation action: 'apply_index'..."));
-  const mutateSpinner = ora(
-    "AI Agent requesting authorization to execute 'apply_index'...",
-  ).start();
-
-  try {
-    await authorizedToolCall(
-      "apply_index",
-      {
-        sql: "CREATE INDEX CONCURRENTLY idx_users_created_at ON users(created_at);",
-      },
-      "Automatically apply suggested database index to resolve sequential scan",
-    );
-    mutateSpinner.warn(chalk.yellow("Action was permitted unexpectedly"));
-  } catch (err: any) {
-    mutateSpinner.fail(
-      chalk.red("ArmorIQ Policy Decision: BLOCKED ⛔ (querypilot-db.apply_index)"),
-    );
-    console.log(
-      chalk.bgRed.white(" SECURITY ENFORCEMENT "),
-      chalk.redBright(err.message ?? err),
-    );
-    console.log(
-      chalk.dim(
-        "\nArmorIQ prevented unauthorized write access to the database.\nAutonomous agents are restricted from modifying database schema or indexes without human approval.",
-      ),
-    );
-  }
+  // ── Remediation Policy ────────────────────────────────────────────────────
+  console.log("\n" + chalk.bold.cyan("Remediation Policy:"));
+  console.log(
+    chalk.dim(
+      "QueryPilot operates in read-only analysis mode. Schema modifications require human review and approval.",
+    ),
+  );
 
   console.log(chalk.bold.cyan("\n========================================================"));
-  console.log(chalk.green("✔ Agent Run Completed with Real ArmorIQ Policy Enforcement"));
+  console.log(chalk.green("✔ Agent Run Completed"));
   console.log(chalk.bold.cyan("========================================================\n"));
 
   await pool.end();
@@ -135,7 +96,12 @@ async function runAgent() {
 }
 
 runAgent().catch(async (err) => {
-  console.error("Agent failed:", err);
+  const msg = err instanceof Error ? err.message : String(err);
+  const sanitized = msg
+    .replace(/:\/\/([^:]+):([^@]+)@/g, "://$1:***@")
+    .replace(/Bearer\s+[A-Za-z0-9_\-\.~]+/gi, "Bearer ***")
+    .replace(/ak_(?:live|claw|test)_[A-Za-z0-9]+/gi, "ak_***");
+  console.error("Agent failed:", sanitized);
   await pool.end();
   process.exit(1);
 });

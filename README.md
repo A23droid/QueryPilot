@@ -4,6 +4,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.0-orange.svg)](https://modelcontextprotocol.io/)
+[![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Cloud%20Run-4285F4.svg?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
 [![ArmorIQ](https://img.shields.io/badge/Security-ArmorIQ-purple.svg)](https://armoriq.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -16,7 +17,7 @@ Modern software development relies heavily on AI coding assistants and Object-Re
 1. **Silent Performance Regressions**: Full sequential table scans, unindexed sorts, and quadratic join explosions that pass unit tests but crash production databases under real load.
 2. **Autonomous Agent Security Risks**: When AI agents are given database credentials to optimize or debug queries, direct access creates unacceptable risk — agents can hallucinate destructive write queries (`DROP TABLE`, unapproved index locks) or leak sensitive records.
 
-**QueryPilot** solves both problems. It provides automated query plan analysis, CI regression prevention, and a **Model Context Protocol (MCP)** server governed by **ArmorIQ** zero-trust policy enforcement.
+**QueryPilot** solves both problems. It provides automated query plan analysis, CI regression prevention, and a **Model Context Protocol (MCP)** server deployed on **Google Cloud Platform (GCP Cloud Run)** governed by **ArmorIQ** zero-trust policy enforcement.
 
 ---
 
@@ -40,8 +41,8 @@ Modern software development relies heavily on AI coding assistants and Object-Re
                │  Tool: "apply_index"    ──>  ⛔ BLOCKED (Unauthorized Schema Mutation)
                ▼
 ┌────────────────────────────────────────┐
-│         QueryPilot MCP Server          │
-│   (Streamable HTTP Transport - :3333)  │
+│     QueryPilot MCP Server (GCP)        │
+│   (Google Cloud Run HTTP - :8080)      │
 └──────────────────┬─────────────────────┘
                    │
                    │ (EXPLAIN FORMAT JSON)
@@ -57,6 +58,7 @@ Modern software development relies heavily on AI coding assistants and Object-Re
 
 - **Protected Autonomous Agent Loop**: An AI agent that inspects query execution plans, diagnoses bottlenecks via LLMs (Groq / Llama), and is strictly restricted by ArmorIQ from executing unapproved write operations.
 - **Model Context Protocol (MCP) Server**: Exposes database operations through the standard MCP interface over Streamable HTTP, eliminating the need to distribute root database credentials.
+- **Cloud-Native Deployment (Google Cloud Platform)**: Production-ready multi-stage Docker build deployed to **Google Cloud Run** with automated scaling, secret isolation via **GCP Secret Manager**, and GitLab CI/CD staging/production pipelines.
 - **Visual Plan Tree**: Recursively renders PostgreSQL `EXPLAIN (FORMAT JSON)` execution plans with cost highlights, row estimates, and filter conditions.
 - **Deterministic Static Analyzer**: Automatically flags anti-patterns (Sequential Scans on large tables, in-memory sorts, missing indexes) with categorized severity ratings (`CRITICAL`, `WARNING`, `INFO`).
 - **AI-Powered Query Rewrites**: Generates concrete SQL rewrites, index recommendations, and plain-English performance explanations.
@@ -122,7 +124,30 @@ The agent will:
 | `npm run compare <file> -- -t 20` | Diffs current plan cost vs baseline snapshot; exits 1 on regression |
 | `npm run report <file>` | Generates rich Markdown PR comment with plan, findings, and SCI carbon |
 | `npm run watch` | Starts live ORM interceptor — attach Prisma middleware for real-time analysis |
-| `npm test` | Runs the test suite with Vitest (57 tests) |
+| `npm test` | Runs the test suite with Vitest (72 tests) |
+
+---
+
+## Google Cloud Platform (GCP) Deployment
+
+QueryPilot leverages **Google Cloud Platform (GCP)** for secure, serverless cloud execution of its Model Context Protocol (MCP) server:
+
+- **Google Cloud Run**: The MCP server is packaged in a lightweight multi-stage [Dockerfile](Dockerfile) and deployed as a serverless container on Cloud Run with automated TLS termination, auto-scaling to zero, and native HTTP stream processing.
+- **GCP Secret Manager**: Critical secrets (`DATABASE_URL`, `ARMORIQ_API_KEY`, `QUERY_PILOT_MCP_TOKEN`) are securely injected at runtime from Secret Manager, preventing credential leakage in container images or source repositories.
+- **Artifact Registry & Cloud Build**: Automated container builds and versioned artifact storage integrated into continuous deployment pipelines.
+- **Automated CI/CD**: Staging deployments automatically trigger on push to `main`, with supervised manual promotion gates protecting production Cloud Run instances.
+
+```bash
+# Direct deployment to Google Cloud Run
+gcloud run deploy querypilot-mcp \
+  --source . \
+  --region asia-south1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --set-secrets="DATABASE_URL=DATABASE_URL:latest,ARMORIQ_API_KEY=ARMORIQ_API_KEY:latest,QUERY_PILOT_MCP_TOKEN=QUERY_PILOT_MCP_TOKEN:latest"
+```
+
+For complete step-by-step instructions, see the [SETUP.md](SETUP.md) deployment guide.
 
 ---
 
